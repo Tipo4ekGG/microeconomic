@@ -5,17 +5,25 @@ const searchResults = document.querySelector('#search-results');
 const searchStatus = document.querySelector('#search-status');
 const number = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
 const topicById = Object.fromEntries(topics.map(topic => [topic.id, topic]));
+const sections = Object.entries(sectionTitles).map(([id, title]) => {
+  const entries = topics.filter(topic => topic.section === id);
+  return { id, title, entries, page: entries[0].page };
+});
+const sectionById = Object.fromEntries(sections.map(section => [section.id, section]));
 
 function formula(key) {
   return `<div class="formula">${formulas[key]}</div>`;
 }
 
-function topicCard(topic) {
-  return `<a class="topic-card" href="#topic/${topic.id}">
-    <span class="card-top"><span>§ ${topic.section}</span><span>С. ${topic.page}</span></span>
-    <strong>${topic.title}</strong><span class="card-desc">${topic.summary}</span>
-    <span class="card-bottom"><span>${topic.tag}</span><span aria-hidden="true">↗</span></span>
-  </a>`;
+function sectionList(current) {
+  return `<ol class="section-list">${sections.map(section => `<li>
+    <a href="#section/${section.id}"${section.id === current ? ' aria-current="page"' : ''}>
+      <span class="section-number">${section.id}</span>
+      <span class="section-name"><strong>${section.title}</strong><small>${section.entries.length === 1 ? section.entries[0].summary : section.entries.map(topic => topic.title).join(' · ')}</small></span>
+      <span class="section-page">с. ${section.page}</span>
+      <span class="section-arrow" aria-hidden="true">↗</span>
+    </a>
+  </li>`).join('')}</ol>`;
 }
 
 function graphLinks() {
@@ -31,7 +39,7 @@ function home() {
       <div class="eyebrow"><span class="dot"></span> МИКРОЭКОНОМИКА <span class="divider"></span> ТЕМА&nbsp;06</div>
       <h1>Выбор<br>потребителя<span>.</span></h1>
       <p>Как сравнить наборы благ, учесть цены и бюджет и понять, какой выбор принесёт больше пользы.</p>
-      <div class="hero-actions"><a class="button primary" href="#topic/utility">Начать с полезности <span aria-hidden="true">↗</span></a><a class="button secondary" href="#graphs">Смотреть графики</a></div>
+      <div class="hero-actions"><a class="button primary" href="#contents">К подтемам <span aria-hidden="true">↓</span></a></div>
     </div>
     <figure class="hero-chart" aria-label="Схема оптимального выбора: бюджетная линия касается кривой безразличия">
       <div class="chart-meta"><span><i></i> МОДЕЛЬ ВЫБОРА</span><span>РИС. 01</span></div>
@@ -48,38 +56,42 @@ function home() {
       <figcaption><span><i></i> Бюджетная линия</span><span><i></i> Кривая безразличия</span></figcaption>
     </figure>
   </section>
-  <div class="home-grid">
-    <section aria-labelledby="topic-heading">
-      <div class="section-top"><div><div class="eyebrow ink">01 / ТЕОРИЯ</div><h2 id="topic-heading">Темы и понятия</h2></div><span class="count">${topics.length} материалов</span></div>
-      <div class="topic-grid">${topics.map(topicCard).join('')}</div>
-    </section>
-    <aside class="home-aside">
-      <div class="section-top"><div><div class="eyebrow ink">02 / ВИЗУАЛЬНО</div><h2>Графики</h2></div></div>
-      <div class="graph-panel">${graphLinks()}</div>
-      <div class="book-panel"><span class="eyebrow ink">ПО УЧЕБНИКУ</span><strong>§§ 6.1–6.6</strong><span>Теория начинается на с. 140</span><span>Самоподготовка с. 159</span></div>
-    </aside>
-  </div>`;
+  <section class="contents" id="contents" tabindex="-1" aria-labelledby="topic-heading">
+    <div class="section-top"><div><div class="eyebrow ink">ТЕМА 6 · ПО УЧЕБНИКУ</div><h2 id="topic-heading">Подтемы</h2></div><span class="count">${sections.length} параграфов</span></div>
+    <p class="contents-intro">Выбери параграф. Формулы, обозначения и графики собраны рядом с объяснениями.</p>
+    ${sectionList()}
+  </section>`;
 }
 
-function crumbs(label, parent = '') {
-  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#home">Тема 6</a><span aria-hidden="true">/</span>${parent}<span aria-current="page">${label}</span></nav>`;
+function crumbs(label) {
+  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Выбор потребителя</a><span aria-hidden="true">/</span><span aria-current="page">${label}</span></nav>`;
 }
 
-function topicPage(topic) {
-  const links = topic.related.map(id => topicById[id]);
-  return `${crumbs(topic.title)}
-  <div class="reader-grid"><article class="reader">
-    <div class="eyebrow ink">ТЕОРИЯ <span class="divider"></span> § ${topic.section} · С. ${topic.page}</div>
-    <h1>${topic.title}</h1>
+function conceptMarkup(topic, showTitle) {
+  const links = topic.related.map(id => topicById[id]).filter(link => link.section !== topic.section);
+  return `<section id="concept-${topic.id}" class="concept" tabindex="-1" aria-label="${topic.title}">
+    ${showTitle ? `<h2>${topic.title}</h2>` : ''}
     ${topic.id === 'marginal' ? `<div class="formula-group">${formula('marginal')}${formula('average')}</div>` : topic.key ? formula(topic.key) : ''}
     <p class="lead">${topic.plain}</p>
-    <section><h2>${topic.key ? 'Обозначения' : 'Термины'}</h2><div class="symbols">${topic.symbols.map(([symbol, meaning]) =>
-      `<details><summary>${symbol}</summary><p>${meaning}</p></details>`).join('')}</div></section>
-    ${topic.graph ? graphMarkup(topic.graph) : ''}
+    <h3>${topic.key ? 'Обозначения' : 'Термины'}</h3>
+    <dl class="symbol-list">${topic.symbols.map(([symbol, meaning]) => `<div><dt>${symbol}</dt><dd>${meaning}</dd></div>`).join('')}</dl>
     ${topic.note ? `<p class="note">${topic.note}</p>` : ''}
+    ${topic.graph ? graphMarkup(topic.graph) : ''}
+    ${links.length ? `<div class="concept-links"><span>Связано</span>${links.map(link => `<a href="#topic/${link.id}">§ ${link.section} · ${link.title}</a>`).join('')}</div>` : ''}
+  </section>`;
+}
+
+function sectionPage(section) {
+  const next = sections[sections.indexOf(section) + 1];
+  return `${crumbs('§ ' + section.id)}
+  <div class="reader-grid"><article class="reader">
+    <div class="eyebrow ink">ТЕМА 6 <span class="divider"></span> § ${section.id} · С. ${section.page}</div>
+    <h1>${section.title}</h1>
+    ${section.entries.length > 1 ? `<nav class="concept-jumps" aria-label="В этой подтеме">${section.entries.map(topic => `<a href="#topic/${topic.id}">${topic.title}</a>`).join('')}</nav>` : ''}
+    ${section.entries.map(topic => conceptMarkup(topic, section.entries.length > 1)).join('')}
+    ${next ? `<a class="section-next" href="#section/${next.id}"><small>СЛЕДУЮЩАЯ ПОДТЕМА</small><strong>§ ${next.id} · ${next.title} ↗</strong></a>` : ''}
   </article><aside class="reader-aside">
-    <div class="book-panel"><span class="eyebrow ink">ГДЕ ЧИТАТЬ</span><strong>§ ${topic.section} · с. ${topic.page}</strong><span>Начало параграфа в твоём учебнике</span></div>
-    <h2>Связанные понятия</h2><div class="related">${links.map(link => `<a href="#topic/${link.id}">${link.title} <span aria-hidden="true">↗</span></a>`).join('')}</div>
+    <h2>Подтемы главы</h2>${sectionList(section.id)}
   </aside></div>`;
 }
 
@@ -90,7 +102,7 @@ function collection(type) {
   }
   const links = [...topics.filter(topic => topic.key), { ...topicById.marginal, title: 'Средняя полезность', key: 'average' }];
   return `${crumbs('Формулы')}<section class="collection"><div class="eyebrow ink">СПРАВОЧНИК / ТЕМА 06</div><h1>Формулы</h1>
-    <p class="lead">Выбери формулу, чтобы открыть обозначения и страницу учебника.</p>
+    <p class="lead">Выбери формулу, чтобы открыть её в нужном параграфе.</p>
     <div class="formula-index">${links.map(topic => `<a href="#topic/${topic.id}"><span class="index-label">${topic.title} <small>§ ${topic.section} · с. ${topic.page}</small></span>${formula(topic.key)}</a>`).join('')}</div></section>`;
 }
 
@@ -105,7 +117,7 @@ const graphs = {
 
 function graphMarkup(kind) {
   const graph = graphs[kind];
-  return `<figure id="graph" tabindex="-1" class="study-chart" data-graph="${kind}">
+  return `<figure id="graph-${kind}" tabindex="-1" class="study-chart" data-graph="${kind}">
     <div class="eyebrow ink">ГРАФИК</div><h2>${graph.title}</h2>
     <svg viewBox="0 0 590 302" role="img" aria-label="${graph.title}"></svg>
     ${kind === 'budget' ? `<div class="controls">${[
@@ -118,9 +130,7 @@ function graphMarkup(kind) {
   </figure>`;
 }
 
-function setupGraph() {
-  const figure = main.querySelector('[data-graph]');
-  if (!figure) return;
+function setupGraph(figure) {
   const kind = figure.dataset.graph;
   const graph = graphs[kind];
   const [maxX, maxY] = graph.max;
@@ -181,18 +191,23 @@ function setupGraph() {
 function render(moveFocus = false) {
   const [route, id, target] = location.hash.slice(1).split('/');
   const topic = route === 'topic' && Object.hasOwn(topicById, id) ? topicById[id] : null;
-  const section = route === 'graphs' || (topic?.graph && target === 'graph') ? 'graphs' : route === 'formulas' ? 'formulas' : 'home';
-  document.querySelectorAll('[data-section]').forEach(link => {
-    if (link.dataset.section === section) link.setAttribute('aria-current', 'page');
-    else link.removeAttribute('aria-current');
-  });
-  main.innerHTML = topic ? topicPage(topic) : section === 'home' ? home() : collection(section);
-  document.title = `${topic?.title ?? (section === 'graphs' ? 'Графики' : section === 'formulas' ? 'Формулы' : 'Выбор потребителя')} · Микроэкономика`;
-  setupGraph();
-  const graph = target === 'graph' ? main.querySelector('#graph') : null;
-  if (graph) {
-    graph.focus({ preventScroll: true });
-    graph.scrollIntoView();
+  const sectionId = topic?.section ?? (route === 'section' ? id : null);
+  const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
+  const index = route === 'graphs' || route === 'formulas' ? route : null;
+  const view = section?.id ?? index ?? 'home';
+
+  if (main.dataset.view !== view) {
+    main.dataset.view = view;
+    main.innerHTML = section ? sectionPage(section) : index ? collection(index) : home();
+    document.title = `${section?.title ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Выбор потребителя')} · Микроэкономика`;
+    main.querySelectorAll('[data-graph]').forEach(setupGraph);
+  }
+
+  const anchor = topic ? (target === 'graph' && topic.graph ? 'graph-' + topic.graph : 'concept-' + topic.id) : route === 'contents' ? 'contents' : null;
+  const destination = anchor ? document.getElementById(anchor) : null;
+  if (destination) {
+    destination.focus({ preventScroll: true });
+    destination.scrollIntoView();
   } else if (moveFocus) {
     main.focus({ preventScroll: true });
     window.scrollTo(0, 0);
@@ -206,7 +221,7 @@ function normalized(value) {
 const searchItems = [
   ...topics.map(topic => ({
     href: '#topic/' + topic.id, title: topic.title, label: '§ ' + topic.section + ' · с. ' + topic.page,
-    keywords: normalized([topic.title, topic.tag, topic.summary, topic.section, topic.symbols.map(item => item[0]).join(' '),
+    keywords: normalized([topic.title, sectionTitles[topic.section], topic.tag, topic.summary, topic.section, topic.symbols.map(item => item[0]).join(' '),
       { marginal: 'mu tu au мю предельная', derivative: 'mux muy частные производные дельта ∂', optimum: 'оптимальный равновесие mu px', budget: 'бюджетное ограничение доход px py' }[topic.id] ?? ''].join(' '))
   })),
   ...topics.filter(topic => topic.graph).map(topic => ({
@@ -241,8 +256,10 @@ searchInput.addEventListener('focus', showSearch);
 searchForm.addEventListener('submit', event => {
   event.preventDefault();
   if (matches.length) {
-    location.hash = matches[0].href;
+    const href = matches[0].href;
     hideSearch();
+    if (location.hash === href) render(true);
+    else location.hash = href;
   }
 });
 searchResults.addEventListener('click', event => {
