@@ -15,9 +15,9 @@ function formula(key) {
   return `<div class="formula">${formulas[key]}</div>`;
 }
 
-function sectionList(items, current) {
+function sectionList(items) {
   return `<ol class="section-list">${items.map(section => `<li>
-    <a href="#section/${section.id}"${section.id === current ? ' aria-current="page"' : ''}>
+    <a href="#section/${section.id}">
       <span class="section-number">${section.id}</span>
       <span class="section-name"><strong>${section.title}</strong><small>${section.entries.length === 1 ? section.entries[0].summary : section.entries.map(topic => topic.title).join(' · ')}</small></span>
       <span class="section-page">с. ${section.page}</span>
@@ -66,36 +66,39 @@ function home() {
   </section>`;
 }
 
-function crumbs(label, chapter) {
-  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Оглавление</a><span aria-hidden="true">/</span>${chapter ? `<a href="#chapter/${chapter}">Тема ${chapter}</a><span aria-hidden="true">/</span>` : ''}<span aria-current="page">${label}</span></nav>`;
+function crumbs(label) {
+  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Оглавление</a><span aria-hidden="true">/</span><span aria-current="page">${label}</span></nav>`;
 }
 
 function conceptMarkup(topic, showTitle) {
+  const heading = showTitle ? 'h4' : 'h3';
   const links = topic.related.map(id => topicById[id]).filter(link => link.section !== topic.section);
   return `<section id="concept-${topic.id}" class="concept" tabindex="-1" aria-label="${topic.title}">
-    ${showTitle ? `<h2>${topic.title}</h2>` : ''}
+    ${showTitle ? `<h3>${topic.title}</h3>` : ''}
     ${topic.key ? `<div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(formula).join('')}</div>` : ''}
     <p class="lead">${topic.plain}</p>
-    <h3>${topic.key ? 'Обозначения' : 'Термины'}</h3>
+    <${heading} class="terms-title">${topic.key ? 'Обозначения' : 'Термины'}</${heading}>
     <dl class="symbol-list">${topic.symbols.map(([symbol, meaning]) => `<div><dt>${symbol}</dt><dd>${meaning}</dd></div>`).join('')}</dl>
     ${topic.note ? `<p class="note">${topic.note}</p>` : ''}
-    ${topic.graph ? graphMarkup(topic.graph) : ''}
+    ${topic.graph ? graphMarkup(topic.graph, heading) : ''}
     ${links.length ? `<div class="concept-links"><span>Связано</span>${links.map(link => `<a href="#topic/${link.id}">§ ${link.section} · ${link.title}</a>`).join('')}</div>` : ''}
   </section>`;
 }
 
-function sectionPage(section) {
-  const chapterSections = sections.filter(item => item.chapter === section.chapter);
-  const next = chapterSections[chapterSections.indexOf(section) + 1];
-  return `${crumbs('§ ' + section.id, section.chapter)}
+function chapterPage(chapter) {
+  const chapterSections = sections.filter(item => item.chapter === chapter);
+  return `${crumbs('Тема ' + chapter)}
   <div class="reader-grid"><article class="reader">
-    <div class="eyebrow ink">ТЕМА ${section.chapter} <span class="divider"></span> § ${section.id} · С. ${section.page}</div>
-    <h1>${section.title}</h1>
-    ${section.entries.length > 1 ? `<nav class="concept-jumps" aria-label="В этой подтеме">${section.entries.map(topic => `<a href="#topic/${topic.id}">${topic.title}</a>`).join('')}</nav>` : ''}
-    ${section.entries.map(topic => conceptMarkup(topic, section.entries.length > 1)).join('')}
-    ${next ? `<a class="section-next" href="#section/${next.id}"><small>СЛЕДУЮЩАЯ ПОДТЕМА</small><strong>§ ${next.id} · ${next.title} ↗</strong></a>` : ''}
+    <div class="eyebrow ink">ТЕМА ${chapter}</div>
+    <h1>${chapterTitles[chapter]}</h1>
+    ${chapterSections.map(section => `<section class="reader-section" id="section-${section.id}" tabindex="-1" aria-labelledby="heading-${section.id}">
+      <div class="eyebrow ink">§ ${section.id} <span class="divider"></span> С. ${section.page}</div>
+      <h2 id="heading-${section.id}">${section.title}</h2>
+      ${section.entries.length > 1 ? `<nav class="concept-jumps" aria-label="Понятия параграфа ${section.id}">${section.entries.map(topic => `<a href="#topic/${topic.id}">${topic.title}</a>`).join('')}</nav>` : ''}
+      ${section.entries.map(topic => conceptMarkup(topic, section.entries.length > 1)).join('')}
+    </section>`).join('')}
   </article><aside class="reader-aside">
-    <h2>Подтемы главы</h2>${sectionList(chapterSections, section.id)}
+    <h2>Подтемы главы</h2>${sectionList(chapterSections)}
   </aside></div>`;
 }
 
@@ -110,10 +113,10 @@ function collection(type) {
     <div class="formula-index">${links.map(topic => `<a href="#topic/${topic.id}"><span class="index-label">${topic.title} <small>§ ${topic.section} · с. ${topic.page}</small></span><div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(formula).join('')}</div></a>`).join('')}</div></section>`;
 }
 
-function graphMarkup(kind) {
+function graphMarkup(kind, heading) {
   const graph = graphs[kind];
   return `<figure id="graph-${kind}" tabindex="-1" class="study-chart" data-graph="${kind}">
-    <div class="eyebrow ink">ГРАФИК</div><h2>${graph.title}</h2>
+    <div class="eyebrow ink">ГРАФИК</div><${heading} class="chart-title">${graph.title}</${heading}>
     <svg viewBox="0 0 590 302" role="img" aria-label="${graph.title}"></svg>
     ${kind === 'budget' ? `<div class="controls">${[
       ['income', 'Доход I', 60, 180, 120, 10],
@@ -196,16 +199,27 @@ function render(moveFocus = false) {
   const sectionId = topic?.section ?? (route === 'section' ? id : null);
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
-  const view = section?.id ?? index ?? 'home';
+  const view = section ? 'reader-' + section.chapter : index ?? 'home';
 
   if (main.dataset.view !== view) {
     main.dataset.view = view;
-    main.innerHTML = section ? sectionPage(section) : index ? collection(index) : home();
-    document.title = `${section?.title ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Учебный справочник')} · Микроэкономика`;
+    main.innerHTML = section ? chapterPage(section.chapter) : index ? collection(index) : home();
     main.querySelectorAll('[data-graph]').forEach(setupGraph);
   }
 
-  const anchor = topic ? (target === 'graph' && topic.graph ? 'graph-' + topic.graph : 'concept-' + topic.id) : route === 'chapter' && Object.hasOwn(chapterTitles, id) ? 'chapter-' + id : route === 'contents' ? 'contents' : null;
+  document.title = `${section?.title ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Учебный справочник')} · Микроэкономика`;
+
+  let anchor;
+  if (topic) anchor = target === 'graph' && topic.graph ? 'graph-' + topic.graph : 'concept-' + topic.id;
+  else if (section) anchor = 'section-' + section.id;
+  else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
+  else if (route === 'contents') anchor = 'contents';
+
+  main.querySelectorAll('.reader-aside .section-list a').forEach(link => {
+    if (link.hash === '#section/' + section?.id) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
+
   const destination = anchor ? document.getElementById(anchor) : null;
   if (destination) {
     destination.focus({ preventScroll: true });
@@ -269,6 +283,11 @@ searchResults.addEventListener('click', event => {
 });
 document.addEventListener('click', event => {
   if (!event.target.closest('.search')) hideSearch();
+  const href = event.target.closest('a')?.getAttribute('href');
+  if (href?.startsWith('#') && href === location.hash && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+    event.preventDefault();
+    render(true);
+  }
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !searchResults.hidden) {
@@ -285,5 +304,68 @@ document.querySelector('.skip').addEventListener('click', event => {
   main.focus();
   main.scrollIntoView();
 });
+function setupPullRefresh() {
+  if (!window.matchMedia('(display-mode: standalone)').matches && navigator.standalone !== true) return;
+
+  const status = document.querySelector('.refresh-status');
+  const threshold = 88;
+  let start = null;
+  let distance = 0;
+
+  document.documentElement.classList.add('standalone-refresh');
+
+  function reset() {
+    start = null;
+    distance = 0;
+    status.dataset.active = 'false';
+    status.textContent = '';
+    document.removeEventListener('touchmove', move);
+  }
+
+  function move(event) {
+    if (event.touches.length !== 1 || window.scrollY > 0 || !event.cancelable) {
+      reset();
+      return;
+    }
+
+    const touch = event.touches[0];
+    const dx = Math.abs(touch.clientX - start.clientX);
+    const dy = touch.clientY - start.clientY;
+    if (dy < -3 || dx > Math.max(8, dy)) {
+      reset();
+      return;
+    }
+    if (dy <= 0) return;
+
+    event.preventDefault();
+    distance = dy;
+    status.dataset.active = String(dy >= 16);
+    const message = dy < 16 ? '' : dy >= threshold ? 'Отпусти для обновления' : 'Потяни для обновления';
+    if (status.textContent !== message) status.textContent = message;
+  }
+
+  document.addEventListener('touchstart', event => {
+    reset();
+    if (event.touches.length !== 1 || window.scrollY > 0 ||
+        event.target.closest('input, textarea, select, button, [contenteditable], .search-results')) return;
+    start = event.touches[0];
+    document.addEventListener('touchmove', move, { passive: false });
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!start) return;
+    if (distance < threshold) {
+      reset();
+      return;
+    }
+    start = null;
+    document.removeEventListener('touchmove', move);
+    status.textContent = 'Обновляю страницу…';
+    location.reload();
+  }, { passive: true });
+  document.addEventListener('touchcancel', reset, { passive: true });
+}
+
 window.addEventListener('hashchange', () => render(true));
 render();
+setupPullRefresh();

@@ -96,7 +96,7 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
 .index-label { font-weight: 700; }
 .index-label small { display: block; color: var(--muted); font-weight: 400; }
 .study-chart { margin: 25px 0 0; padding: 15px; background: var(--page); border: 1px solid var(--line); border-radius: 10px; }
-.study-chart h2 { margin: 5px 0 8px; }
+.study-chart .chart-title { margin: 5px 0 8px; font: 500 clamp(20px, 3vw, 25px)/1.15 var(--serif); }
 .study-chart svg { display: block; width: 100%; }
 .study-chart svg text { font: 14px var(--sans); fill: var(--muted); }
 .study-chart figcaption { color: var(--muted); font-size: 14px; }
@@ -163,7 +163,8 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
 .reader-aside .section-list small, .reader-aside .section-arrow { display: none; }
 .concept { margin-top: 18px; scroll-margin-top: 16px; }
 .concept + .concept { margin-top: 28px; padding-top: 25px; border-top: 1px solid var(--line); }
-.concept h3 { margin: 17px 0 5px; font-size: 15px; }
+.concept h3:not(.chart-title):not(.terms-title) { margin: 0 0 12px; font: 500 clamp(21px, 3vw, 27px)/1.16 var(--serif); }
+.terms-title { margin: 17px 0 5px; font-size: 15px; }
 .concept-jumps, .concept-links { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; font-size: 14px; }
 .concept-links { margin-top: 15px; color: var(--muted); }
 .concept-jumps a, .concept-links a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
@@ -171,9 +172,6 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
 .symbol-list div { display: grid; grid-template-columns: minmax(65px, max-content) 1fr; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .symbol-list dt { font-weight: 750; }
 .symbol-list dd { min-width: 0; margin: 0; color: var(--muted); }
-.section-next { display: grid; gap: 3px; margin-top: 25px; padding: 10px 13px; border-radius: 8px; background: var(--mint); }
-.section-next small { color: var(--muted); font-size: 11px; letter-spacing: .08em; }
-.section-next:hover { color: var(--accent); }
 .study-chart { scroll-margin-top: 16px; }
 @media (max-width: 410px) {
   .contents { margin-top: 24px; }
@@ -205,3 +203,28 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
 .legend-area-mint { background: #bdd8ca; }
 .legend-area-blue { background: #c2d4eb; }
 .formula-index .formula-group { max-width: 100%; }
+
+
+.reader-section { scroll-margin-top: 16px; }
+.reader-section + .reader-section { margin-top: 38px; padding-top: 26px; border-top: 1px solid var(--line); }
+.reader-section > h2 { margin-top: 6px; font-size: clamp(25px, 4vw, 37px); }
+@media (min-width: 731px) {
+  .reader-aside { position: sticky; align-self: start; top: 16px; }
+}
+.standalone-refresh { overscroll-behavior-y: none; }
+.refresh-status {
+  position: fixed;
+  z-index: 5;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 50%;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+  border-radius: 999px;
+  padding: 7px 13px;
+  background: var(--navy);
+  color: #fffef9;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+.refresh-status[data-active="false"] { opacity: 0; }
