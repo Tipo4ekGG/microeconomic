@@ -161,6 +161,10 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
 
 .contents { max-width: 880px; margin-top: 32px; scroll-margin-top: 18px; }
 .contents-intro { margin: -5px 0 16px; color: var(--muted); }
+.contents-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.contents-tools .button { background: var(--surface); border-color: var(--line); color: var(--text); }
+.contents-tools .button:hover { border-color: var(--accent); color: var(--accent); }
+.contents-tools .button span { color: var(--accent); }
 .section-list { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .section-list a { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .section-list a:hover { border-color: #aa705a; background: #fffaf2; }
@@ -223,7 +227,9 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
 @media (min-width: 731px) {
   .reader-aside { position: sticky; align-self: start; top: 16px; }
 }
-.standalone-refresh { overscroll-behavior-y: none; }
+@media (any-pointer: coarse) {
+  html { overscroll-behavior-y: none; }
+}
 .refresh-status {
   position: fixed;
   z-index: 5;

@@ -33,8 +33,8 @@ function graphLinks() {
   </a>`).join('')}</div>`;
 }
 
-function home() {
-  return `<section class="hero">
+function home(showHero) {
+  return `${showHero ? `<section class="hero">
     <div class="hero-content">
       <div class="eyebrow"><span class="dot"></span> УЧЕБНЫЙ СПРАВОЧНИК</div>
       <h1>Микроэкономика<span>.</span></h1>
@@ -55,10 +55,14 @@ function home() {
       </svg>
       <figcaption><span><i></i> Бюджетная линия</span><span><i></i> Кривая безразличия</span></figcaption>
     </figure>
-  </section>
-  <section class="contents" id="contents" tabindex="-1" aria-labelledby="topic-heading">
+  </section>` : ''}
+  <section class="contents" id="table-of-contents" tabindex="-1" aria-labelledby="topic-heading">
     <div class="section-top"><div><div class="eyebrow ink">ПО УЧЕБНИКУ</div><h2 id="topic-heading">Оглавление</h2></div><span class="count">${sections.length} параграфов</span></div>
     <p class="contents-intro">Выбери тему, затем нужный параграф.</p>
+    <nav class="contents-tools" aria-label="Указатели справочника">
+      <a class="button" href="#formulas">Формулы <span aria-hidden="true">↗</span></a>
+      <a class="button" href="#graphs">Графики <span aria-hidden="true">↗</span></a>
+    </nav>
     <nav class="chapter-jumps" aria-label="Темы справочника">${Object.keys(chapterTitles).map(id => `<a href="#chapter/${id}" aria-label="Тема ${id}. ${chapterTitles[id]}">Тема ${id}</a>`).join('')}</nav>
     ${Object.entries(chapterTitles).map(([id, title]) => `<section class="chapter" id="chapter-${id}" tabindex="-1">
       <h3><span>ТЕМА ${id}</span>${title}</h3>${sectionList(sections.filter(section => section.chapter === id))}
@@ -202,11 +206,12 @@ function render(moveFocus = false) {
   const sectionId = topic?.section ?? (route === 'section' ? id : null);
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
-  const view = section ? 'reader-' + section.chapter : index ?? 'home';
+  const contentsView = route === 'contents' || route === 'chapter';
+  const view = section ? 'reader-' + section.chapter : index ?? (contentsView ? 'contents' : 'home');
 
   if (main.dataset.view !== view) {
     main.dataset.view = view;
-    main.innerHTML = section ? chapterPage(section.chapter) : index ? collection(index) : home();
+    main.innerHTML = section ? chapterPage(section.chapter) : index ? collection(index) : home(!contentsView);
     main.querySelectorAll('[data-graph]').forEach(setupGraph);
   }
 
@@ -216,7 +221,6 @@ function render(moveFocus = false) {
   if (topic) anchor = target === 'graph' && topic.graph ? 'graph-' + topic.graph : 'concept-' + topic.id;
   else if (section) anchor = 'section-' + section.id;
   else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
-  else if (route === 'contents') anchor = 'contents';
 
   main.querySelectorAll('.reader-aside .section-list a').forEach(link => {
     if (link.hash === '#section/' + section?.id) link.setAttribute('aria-current', 'location');
@@ -227,7 +231,7 @@ function render(moveFocus = false) {
   if (destination) {
     destination.focus({ preventScroll: true });
     destination.scrollIntoView();
-  } else if (moveFocus) {
+  } else if (moveFocus || route === 'contents') {
     main.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }
@@ -308,62 +312,65 @@ document.querySelector('.skip').addEventListener('click', event => {
   main.scrollIntoView();
 });
 function setupPullRefresh() {
-  if (!window.matchMedia('(display-mode: standalone)').matches && navigator.standalone !== true) return;
-
   const status = document.querySelector('.refresh-status');
-  const threshold = 88;
-  let start = null;
-  let distance = 0;
+  const threshold = 72;
+  const atTop = () => (document.scrollingElement?.scrollTop ?? window.scrollY) <= 1;
+  let gesture = null;
+  let reloading = false;
 
-  document.documentElement.classList.add('standalone-refresh');
-
-  function reset() {
-    start = null;
-    distance = 0;
-    status.dataset.active = 'false';
-    status.textContent = '';
-    document.removeEventListener('touchmove', move);
+  function show(message) {
+    status.dataset.active = String(Boolean(message));
+    if (status.textContent !== message) status.textContent = message;
   }
 
-  function move(event) {
-    if (event.touches.length !== 1 || window.scrollY > 0 || !event.cancelable) {
+  function reset() {
+    gesture = null;
+    if (!reloading) show('');
+  }
+
+  // Register before the first touch so the browser can let us cancel panning.
+  document.addEventListener('touchmove', event => {
+    if (!gesture) return;
+    if (event.touches.length !== 1 || !atTop()) {
       reset();
       return;
     }
-
     const touch = event.touches[0];
-    const dx = Math.abs(touch.clientX - start.clientX);
-    const dy = touch.clientY - start.clientY;
+    const dx = Math.abs(touch.clientX - gesture.x);
+    const dy = touch.clientY - gesture.y;
     if (dy < -3 || dx > Math.max(8, dy)) {
       reset();
       return;
     }
-    if (dy <= 0) return;
+    if (dy <= 0) {
+      show('');
+      return;
+    }
 
-    event.preventDefault();
-    distance = dy;
-    status.dataset.active = String(dy >= 16);
-    const message = dy < 16 ? '' : dy >= threshold ? 'Отпусти для обновления' : 'Потяни для обновления';
-    if (status.textContent !== message) status.textContent = message;
-  }
+    if (event.cancelable) event.preventDefault();
+    gesture.pulling = true;
+    show(dy < 16 ? '' : dy >= threshold ? 'Отпусти для обновления' : 'Потяни для обновления');
+  }, { passive: false, capture: true });
 
   document.addEventListener('touchstart', event => {
     reset();
-    if (event.touches.length !== 1 || window.scrollY > 0 ||
-        event.target.closest('input, textarea, select, button, [contenteditable], .search-results')) return;
-    start = event.touches[0];
-    document.addEventListener('touchmove', move, { passive: false });
+    if (reloading || event.touches.length !== 1 || !atTop() ||
+        event.target.closest?.('input, textarea, select, button, [contenteditable], .search-results')) return;
+    const touch = event.touches[0];
+    gesture = { x: touch.clientX, y: touch.clientY, pulling: false };
   }, { passive: true });
 
-  document.addEventListener('touchend', () => {
-    if (!start) return;
-    if (distance < threshold) {
+  document.addEventListener('touchend', event => {
+    const touch = event.changedTouches[0];
+    if (!gesture?.pulling || !atTop() || !touch ||
+        touch.clientY - gesture.y < threshold ||
+        Math.abs(touch.clientX - gesture.x) > touch.clientY - gesture.y) {
       reset();
       return;
     }
-    start = null;
-    document.removeEventListener('touchmove', move);
-    status.textContent = 'Обновляю страницу…';
+    reloading = true;
+    reset();
+    show('Обновляю страницу…');
     location.reload();
   }, { passive: true });
   document.addEventListener('touchcancel', reset, { passive: true });
