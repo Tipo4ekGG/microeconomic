@@ -16,10 +16,38 @@ const galleryEntries = sections.flatMap(section => section.entries.flatMap(topic
 ));
 const graphByKind = Object.fromEntries(galleryEntries.map(entry => [entry.kind, entry]));
 const galleryState = { query: '', chapter: 'all' };
+const formulaState = { query: '', chapter: 'all' };
+const formulaEntries = [];
+const seenFormulas = new Set();
+for (const section of sections) {
+  for (const topic of section.entries) {
+    for (const key of [topic.key, ...(topic.extraKeys ?? [])].filter(Boolean)) {
+      if (seenFormulas.has(key)) continue;
+      seenFormulas.add(key);
+      formulaEntries.push({ key, topic, section });
+    }
+  }
+}
 let chartObservers = [];
 
-function formula(key) {
-  return `<div class="formula">${formulas[key]}</div>`;
+function escapeHTML(value) {
+  return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}
+
+function icon(name) {
+  const paths = {
+    book: '<path d="M4 4h6a2 2 0 0 1 2 2v15a3 3 0 0 0-3-2H4V4Zm16 0h-6a2 2 0 0 0-2 2v15a3 3 0 0 1 3-2h5V4Z"/>',
+    formula: '<path d="M16 4h-3a3 3 0 0 0-3 3l-2 10a3 3 0 0 1-3 3H4m3-10h9"/>',
+    graph: '<path d="M4 4v16h16M7 15l4-5 4 3 5-7"/>',
+    arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
+    chevron: '<path d="m8 10 4 4 4-4"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>'
+  };
+  return `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+}
+
+function formula(key, topicId) {
+  return `<div class="formula" data-formula="${key}"${topicId ? ` id="formula-${topicId}-${key}" tabindex="-1"` : ''}>${formulas[key]}</div>`;
 }
 
 function sectionList(items) {
@@ -64,7 +92,7 @@ function graphGallery() {
         ${chapters.map(chapter => `<option value="${chapter}">${chapter}. ${chapterTitles[chapter]}</option>`).join('')}
       </select></label>
     </div>
-    <p class="gallery-count" role="status"></p>
+    <div class="index-toolbar"><p class="gallery-count" role="status"></p><button class="clear-filters" type="button" hidden>Сбросить фильтры</button></div>
     ${chapters.map(chapter => `<section class="gallery-group" data-gallery-group="${chapter}">
       <h2><span>ТЕМА ${chapter}</span>${chapterTitles[chapter]}</h2>
       <div class="gallery-grid">${galleryEntries.filter(entry => entry.section.chapter === chapter).map(({ kind, section }) => {
@@ -74,42 +102,60 @@ function graphGallery() {
             <small>§ ${section.id} · с. ${section.page}${source ? ' · Слайды' : ''}</small>
             <strong>${graphs[kind].title}</strong>
             <span>${graphs[kind].caption}</span>
-          </span><span class="graph-arrow" aria-hidden="true">↗</span>
+          </span><span class="graph-arrow" aria-hidden="true">${icon('arrow')}</span>
         </a>`;
       }).join('')}</div>
     </section>`).join('')}
-    <p class="gallery-empty" hidden>Подходящих графиков нет. Попробуй короткий запрос или выбери все темы.</p>
+    <div class="gallery-empty empty-state" hidden><h2>Графики не найдены</h2><p>Сократи запрос или сбрось фильтры, чтобы увидеть все графики.</p><button type="button" class="button outline" data-reset-index>Показать все графики</button></div>
   </section>`;
 }
 
-function setupGraphGallery() {
-  const input = main.querySelector('#gallery-search');
-  const select = main.querySelector('#gallery-chapter');
-  const cards = [...main.querySelectorAll('[data-card]')];
-  const groups = [...main.querySelectorAll('[data-gallery-group]')];
-  const count = main.querySelector('.gallery-count');
-  const empty = main.querySelector('.gallery-empty');
-  input.value = galleryState.query;
-  select.value = galleryState.chapter;
+function setupIndex(type) {
+  const isGraph = type === 'graphs';
+  const state = isGraph ? galleryState : formulaState;
+  const input = main.querySelector(isGraph ? '#gallery-search' : '#formula-search');
+  const select = main.querySelector(isGraph ? '#gallery-chapter' : '#formula-chapter');
+  const cards = [...main.querySelectorAll(isGraph ? '[data-card]' : '[data-formula-card]')];
+  const groups = [...main.querySelectorAll(isGraph ? '[data-gallery-group]' : '[data-formula-group]')];
+  const count = main.querySelector('[role="status"]');
+  const empty = main.querySelector('.empty-state');
+  const resetButton = main.querySelector('.clear-filters');
+  const entries = isGraph ? graphByKind : Object.fromEntries(formulaEntries.map(entry => [entry.key, entry]));
+  const searchable = new Map(cards.map(card => {
+    const entry = entries[isGraph ? card.dataset.card : card.dataset.formulaCard];
+    const { topic, section } = entry;
+    const text = isGraph ? [graphs[entry.kind].title, graphs[entry.kind].caption, graphSource(entry.kind)] :
+      [formulaNames[entry.key], formulaText(entry.key)];
+    return [card, { chapter: section.chapter, text: normalized([...text, topic.title, topic.tag, section.title, topic.symbols.flat().join(' ')].join(' ')) }];
+  }));
+  input.value = state.query;
+  select.value = state.chapter;
 
   function filter() {
-    galleryState.query = input.value;
-    galleryState.chapter = select.value;
+    state.query = input.value;
+    state.chapter = select.value;
     const terms = normalized(input.value).split(' ').filter(Boolean);
     let visible = 0;
     for (const card of cards) {
-      const { kind, topic, section } = graphByKind[card.dataset.card];
-      const graph = graphs[kind];
-      const text = normalized([graph.title, graph.caption, topic.title, topic.tag, section.title, graphSource(kind)].join(' '));
-      const matchesChapter = select.value === 'all' || select.value === section.chapter;
+      const { chapter, text } = searchable.get(card);
+      const matchesChapter = select.value === 'all' || select.value === chapter;
       card.hidden = !matchesChapter || !terms.every(term => text.includes(term));
       if (!card.hidden) visible++;
     }
-    for (const group of groups) group.hidden = !group.querySelector('[data-card]:not([hidden])');
+    for (const group of groups) group.hidden = !group.querySelector(isGraph ? '[data-card]:not([hidden])' : '[data-formula-card]:not([hidden])');
     empty.hidden = visible !== 0;
     count.textContent = `Показано ${visible} из ${cards.length}`;
+    resetButton.hidden = !input.value && select.value === 'all';
   }
 
+  for (const button of main.querySelectorAll('.clear-filters, [data-reset-index]')) {
+    button.addEventListener('click', () => {
+      input.value = '';
+      select.value = 'all';
+      filter();
+      input.focus();
+    });
+  }
   input.addEventListener('input', filter);
   select.addEventListener('change', filter);
   filter();
@@ -122,11 +168,12 @@ function graphPage(entry) {
   return `${crumbs('§ ' + section.id + ' · График', { title: 'Графики', href: '#graphs' })}
   <article class="collection graph-reader">
     <div class="eyebrow ink">ТЕМА ${section.chapter} <span class="divider"></span> § ${section.id} · С. ${section.page}</div>
+    <p class="graph-meta">${chapterTitles[section.chapter]} · График ${i + 1} из ${chapterEntries.length}</p>
     <h1>${graphs[kind].title}</h1>
     ${graphMarkup(kind, null)}
     <div class="graph-actions">
       <a class="button primary" href="#topic/${topic.id}">К теории <span aria-hidden="true">↗</span></a>
-      <a class="button outline" href="#graphs">Все графики</a>
+      <a class="button outline" href="#graphs" data-restore-index>К списку графиков</a>
     </div>
     <nav class="graph-neighbors" aria-label="Графики этой темы">
       ${chapterEntries[i - 1] ? `<a href="#graph/${chapterEntries[i - 1].kind}"><small>← ПРЕДЫДУЩИЙ</small><strong>${graphs[chapterEntries[i - 1].kind].title}</strong></a>` : '<span></span>'}
@@ -135,39 +182,27 @@ function graphPage(entry) {
   </article>`;
 }
 
-function home(showHero) {
-  return `${showHero ? `<section class="hero">
-    <div class="hero-content">
-      <div class="eyebrow"><span class="dot"></span> УЧЕБНЫЙ СПРАВОЧНИК</div>
-      <h1>Микроэкономика<span>.</span></h1>
-      <p>Определения, формулы и графики в порядке глав учебника.</p>
-      <div class="hero-actions"><a class="button primary" href="#contents">К оглавлению <span aria-hidden="true">↓</span></a></div>
+function home(showIntro) {
+  const heading = showIntro ? 'h2' : 'h1';
+  return `${showIntro ? `<section class="home-intro">
+    <div class="eyebrow ink">УЧЕБНЫЙ СПРАВОЧНИК</div>
+    <h1>Микроэкономика</h1>
+    <p class="lead">Понятия, формулы и графики с объяснениями простыми словами.</p>
+    <div class="home-shortcuts">
+      ${[
+        ['book', '#contents', 'Разобраться в теме', `${sections.length} параграфов по учебнику`],
+        ['formula', '#formulas', 'Найти формулу', `${formulaEntries.length} формулы с обозначениями`],
+        ['graph', '#graphs', 'Посмотреть график', `${galleryEntries.length} схем с пояснениями`]
+      ].map(([name, href, title, text]) => `<a class="shortcut" href="${href}"><span class="shortcut-icon">${icon(name)}</span><span><strong>${title}</strong><small>${text}</small></span>${icon('arrow')}</a>`).join('')}
     </div>
-    <figure class="hero-chart" aria-label="Схема оптимального выбора: бюджетная линия касается кривой безразличия">
-      <div class="chart-meta"><span><i></i> МОДЕЛЬ ВЫБОРА</span><span>РИС. 01</span></div>
-      <svg viewBox="0 0 390 246" aria-hidden="true">
-        <defs><pattern id="hero-grid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M 36 0 L 0 0 0 36" fill="none" stroke="#475b67" stroke-width="1"/></pattern></defs>
-        <path d="M46 20H366V209H46Z" fill="url(#hero-grid)"/>
-        <path d="M46 23V209H363" fill="none" stroke="#a2b1b8"/>
-        <path d="M46 43L336 209" stroke="#fd9c7c" stroke-width="2" fill="none"/>
-        <path d="M101 37C126 80 149 102 191 126C233 150 278 167 345 173" stroke="#b8d9ca" stroke-width="2.4" fill="none"/>
-        <path d="M191 126V209M46 126H191" stroke="#a2b1b8" stroke-dasharray="4 5" opacity=".75"/>
-        <circle cx="191" cy="126" r="11" fill="#fd9c7c" opacity=".2"/><circle cx="191" cy="126" r="4.5" fill="#fd9c7c"/>
-        <text x="207" y="116">оптимум</text><text x="27" y="28">Y</text><text x="355" y="230">X</text>
-      </svg>
-      <figcaption><span><i></i> Бюджетная линия</span><span><i></i> Кривая безразличия</span></figcaption>
-    </figure>
   </section>` : ''}
   <section class="contents" id="table-of-contents" tabindex="-1" aria-labelledby="topic-heading">
-    <div class="section-top"><div><div class="eyebrow ink">ПО УЧЕБНИКУ</div><h2 id="topic-heading">Оглавление</h2></div><span class="count">${sections.length} параграфов</span></div>
-    <p class="contents-intro">Выбери тему, затем нужный параграф.</p>
-    <nav class="contents-tools" aria-label="Указатели справочника">
-      <a class="button" href="#formulas">Формулы <span aria-hidden="true">↗</span></a>
-      <a class="button" href="#graphs">Графики <span aria-hidden="true">↗</span></a>
-    </nav>
-    <nav class="chapter-jumps" aria-label="Темы справочника">${Object.keys(chapterTitles).map(id => `<a href="#chapter/${id}" aria-label="Тема ${id}. ${chapterTitles[id]}">Тема ${id}</a>`).join('')}</nav>
-    ${Object.entries(chapterTitles).map(([id, title]) => `<section class="chapter" id="chapter-${id}" tabindex="-1">
-      <h3><span>ТЕМА ${id}</span>${title}</h3>${sectionList(sections.filter(section => section.chapter === id))}
+    <div class="contents-header"><div class="contents-heading"><div class="eyebrow ink">ПО УЧЕБНИКУ</div><${heading} id="topic-heading">Оглавление</${heading}></div><span class="count">${Object.keys(chapterTitles).length} тем · ${sections.length} параграфов</span></div>
+    <p class="contents-intro">Открой параграф, чтобы прочитать определения, формулы и пояснения к графикам.</p>
+    ${!showIntro ? `<nav class="contents-tools" aria-label="Указатели справочника"><a class="button outline" href="#formulas">${icon('formula')}Формулы</a><a class="button outline" href="#graphs">${icon('graph')}Графики</a></nav>` : ''}
+    <label class="chapter-selector">Перейти к теме<select id="chapter-select"><option value="">Выбрать тему</option>${Object.entries(chapterTitles).map(([id,title])=>`<option value="${id}">${id}. ${title}</option>`).join('')}</select></label>
+    ${Object.entries(chapterTitles).map(([id, title]) => `<section class="chapter" id="chapter-${id}" tabindex="-1" aria-labelledby="chapter-title-${id}">
+      <h${showIntro ? '3' : '2'} id="chapter-title-${id}"><span>ТЕМА ${id}</span>${title}</h${showIntro ? '3' : '2'}>${sectionList(sections.filter(section => section.chapter === id))}
     </section>`).join('')}
   </section>`;
 }
@@ -179,14 +214,18 @@ function crumbs(label, parent) {
 function conceptMarkup(topic, showTitle) {
   const heading = showTitle ? 'h4' : 'h3';
   const links = topic.related.map(id => topicById[id]).filter(link => link.section !== topic.section);
+  const kinds = graphKinds(topic);
+  const primaryGraph = topic.graph ?? kinds[0];
+  const otherGraphs = kinds.filter(kind => kind !== primaryGraph);
   return `<section id="concept-${topic.id}" class="concept" tabindex="-1" aria-label="${topic.title}">
     ${showTitle ? `<h3>${topic.title}</h3>` : ''}
-    ${topic.key ? `<div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(formula).join('')}</div>` : ''}
+    ${topic.key ? `<div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(key => formula(key, topic.id)).join('')}</div>` : ''}
     <p class="lead">${topic.plain}</p>
     <${heading} class="terms-title">${topic.key ? 'Обозначения' : 'Термины'}</${heading}>
     <dl class="symbol-list">${topic.symbols.map(([symbol, meaning]) => `<div><dt>${symbol}</dt><dd>${meaning}</dd></div>`).join('')}</dl>
     ${topic.note ? `<p class="note">${topic.note}</p>` : ''}
-    ${graphKinds(topic).map(kind => graphMarkup(kind, heading)).join('')}
+    ${primaryGraph ? graphMarkup(primaryGraph, heading) : ''}
+    ${otherGraphs.length ? `<details class="related-graphs"><summary>Все графики по этому понятию <span class="count">${kinds.length}</span>${icon('chevron')}</summary><div class="related-graph-list">${kinds.map(kind => `<a class="related-graph-card" href="#graph/${kind}">${icon('graph')}<span><strong>${graphs[kind].title}</strong><small>${graphs[kind].caption}</small></span>${icon('arrow')}</a>`).join('')}</div></details>` : ''}
     ${links.length ? `<div class="concept-links"><span>Связано</span>${links.map(link => `<a href="#topic/${link.id}">§ ${link.section} · ${link.title}</a>`).join('')}</div>` : ''}
   </section>`;
 }
@@ -197,33 +236,55 @@ function chapterPage(chapter) {
   <div class="reader-grid"><article class="reader">
     <div class="eyebrow ink">ТЕМА ${chapter}</div>
     <h1>${chapterTitles[chapter]}</h1>
+    <details class="chapter-picker"><summary>${icon('book')}<span>Параграфы темы<small class="current-section" data-current-section></small></span>${icon('chevron')}</summary><nav data-reader-nav aria-label="Параграфы текущей темы">${sectionList(chapterSections)}</nav></details>
     ${chapterSections.map(section => `<section class="reader-section" id="section-${section.id}" tabindex="-1" aria-labelledby="heading-${section.id}">
       <div class="eyebrow ink">§ ${section.id} <span class="divider"></span> С. ${section.page}</div>
       <h2 id="heading-${section.id}">${section.title}</h2>
       ${section.entries.length > 1 ? `<nav class="concept-jumps" aria-label="Понятия параграфа ${section.id}">${section.entries.map(topic => `<a href="#topic/${topic.id}">${topic.title}</a>`).join('')}</nav>` : ''}
       ${section.entries.map(topic => conceptMarkup(topic, section.entries.length > 1)).join('')}
+      ${sectionNeighbors(section)}
     </section>`).join('')}
   </article><aside class="reader-aside">
-    <h2>Подтемы главы</h2>${sectionList(chapterSections)}
+    <nav data-reader-nav aria-label="Параграфы текущей темы"><h2>В этой теме</h2>${sectionList(chapterSections)}</nav>
+    <a class="button outline" href="#contents">${icon('book')}Все темы</a>
   </aside></div>`;
+}
+
+function sectionNeighbors(section) {
+  const index = sections.indexOf(section);
+  return `<nav class="section-neighbors" aria-label="Соседние параграфы">${[
+    [sections[index - 1], 'Предыдущий параграф', '←'],
+    [sections[index + 1], 'Следующий параграф', '→']
+  ].map(([item, label, arrow]) => item ? `<a href="#section/${item.id}"><small>${label} ${arrow}</small><strong>§ ${item.id} · ${item.title}</strong></a>` : '<span></span>').join('')}</nav>`;
 }
 
 function collection(type) {
   if (type === 'graphs') return graphGallery();
-  const links = sections.flatMap(section => section.entries.filter(topic => topic.key));
-  return `${crumbs('Формулы')}<section class="collection"><div class="eyebrow ink">УКАЗАТЕЛЬ ФОРМУЛ</div><h1>Формулы</h1>
-    <p class="lead">Выбери формулу, чтобы открыть её в нужном параграфе.</p>
-    <div class="formula-index">${links.map(topic => `<a href="#topic/${topic.id}"><span class="index-label">${topic.title} <small>§ ${topic.section} · с. ${topic.page}</small></span><div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(formula).join('')}</div></a>`).join('')}</div></section>`;
+  const chapters = [...new Set(formulaEntries.map(entry => entry.section.chapter))];
+  return `${crumbs('Формулы')}<section class="collection formula-collection"><div class="eyebrow ink">УКАЗАТЕЛЬ ФОРМУЛ</div><h1>Формулы</h1>
+    <p class="lead">Найди формулу и открой её, чтобы посмотреть обозначения и условия применения.</p>
+    <div class="index-controls"><label>Найти формулу<input id="formula-search" type="search" placeholder="Например, MU, издержки или эластичность" autocomplete="off"></label>
+      <label><span id="formula-chapter-label">Тема</span><select id="formula-chapter" aria-labelledby="formula-chapter-label"><option value="all">Все темы</option>${chapters.map(chapter => `<option value="${chapter}">${chapter}. ${chapterTitles[chapter]}</option>`).join('')}</select></label>
+    </div>
+    <div class="index-toolbar"><p role="status"></p><button class="clear-filters" type="button" hidden>Сбросить фильтры</button></div>
+    ${chapters.map(chapter => `<section class="formula-chapter" data-formula-group="${chapter}"><h2><span>ТЕМА ${chapter}</span>${chapterTitles[chapter]}</h2><div class="formula-index">${formulaEntries.filter(entry => entry.section.chapter === chapter).map(({key, topic}) => `<a class="formula-card" data-formula-card="${key}" href="#topic/${topic.id}/formula-${key}"><span class="index-label">${formulaNames[key]}<small>§ ${topic.section} · ${topic.title}</small></span>${formula(key)}${icon('arrow')}</a>`).join('')}</div></section>`).join('')}
+    <div class="empty-state" hidden><h2>Формулы не найдены</h2><p>Попробуй название понятия или обозначение. Например, MU или AVC.</p><button class="button outline" type="button" data-reset-index>Показать все формулы</button></div>
+    </section>`;
 }
 
 function graphMarkup(kind, heading) {
   const graph = graphs[kind];
   const source = graphSource(kind);
-  const legend = [...(graph.series ?? []), ...(graph.regions ?? [])];
+  const legend = kind === 'budget' ? [
+    { style: 'reference-line', label: 'Исходная линия' },
+    { style: 'curve', label: 'Текущая линия' },
+    { style: 'area-peach', label: 'Доступные наборы' }
+  ] : [...(graph.series ?? []), ...(graph.regions ?? [])];
   return `<figure id="graph-${kind}" tabindex="-1" class="study-chart" data-graph="${kind}">
     ${heading ? `<div class="chart-header"><${heading} class="chart-title">${graph.title}</${heading}>
       <a class="chart-open" href="#graph/${kind}" aria-label="Открыть крупно: ${graph.title}">Крупно <span aria-hidden="true">↗</span></a></div>` : ''}
-    <svg viewBox="0 0 590 302" role="img" aria-label="${graph.title}"></svg>
+    <svg viewBox="0 0 590 320" role="img" aria-label="${graph.title}" aria-describedby="caption-${kind} axes-${kind}"></svg>
+    <span class="sr" id="axes-${kind}">По горизонтали — ${graph.x}. По вертикали — ${graph.y}.</span>
     ${kind === 'budget' ? `<div class="controls">${[
       ['income', 'Доход I', 60, 180, 120, 10],
       ['px', 'Цена Pₓ', 2, 6, 3, 1],
@@ -235,11 +296,13 @@ function graphMarkup(kind, heading) {
       const swatch = `<span class="legend-${item.style}"></span>${item.label}`;
       return `<li>${graph.toggleSeries && i < graph.series.length ? `<button type="button" aria-pressed="true" data-curve="${i}">${swatch}</button>` : swatch}</li>`;
     }).join('')}</ul>` : ''}
-    <figcaption>${graph.caption}${source ? `<small class="chart-source">Слайды: ${source}</small>` : ''}</figcaption>
+    <figcaption id="caption-${kind}">${graph.caption}${source ? `<small class="chart-source">Фото слайда · ${source}</small>` : ''}</figcaption>
   </figure>`;
 }
 
 function setupGraph(figure) {
+  if (figure.dataset.ready) return;
+  figure.dataset.ready = 'true';
   const kind = figure.dataset.graph;
   const graph = graphs[kind];
   const [maxX, maxY] = graph.max;
@@ -293,6 +356,7 @@ function setupGraph(figure) {
       marks = line(graph.points, 'curve') + graph.points.map(dot).join('');
     }
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.style.aspectRatio = `${width} / ${height}`;
     svg.innerHTML = axes + marks;
   }
 
@@ -315,117 +379,318 @@ function setupGraph(figure) {
   chartObservers.push(observer);
 }
 
-function render(moveFocus = false) {
+function setupCharts() {
+  const figures = [...main.querySelectorAll('[data-graph]')];
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      observer.unobserve(entry.target);
+      setupGraph(entry.target);
+    }
+  }, { rootMargin: '400px' });
+  figures.forEach(figure => observer.observe(figure));
+  chartObservers.push(observer);
+}
+
+function updateFormulaOverflow() {
+  for (const element of main.querySelectorAll('.concept .formula')) {
+    const overflow = element.scrollWidth > element.clientWidth + 1;
+    element.tabIndex = overflow ? 0 : -1;
+    if (overflow) {
+      element.setAttribute('role', 'region');
+      element.setAttribute('aria-label', formulaNames[element.dataset.formula] + '. Прокрутка стрелками влево и вправо.');
+    } else {
+      element.removeAttribute('role');
+      element.removeAttribute('aria-label');
+    }
+  }
+}
+
+function notFound() {
+  return `${crumbs('Страница не найдена')}<section class="collection not-found"><div class="eyebrow ink">НЕ УДАЛОСЬ ОТКРЫТЬ МАТЕРИАЛ</div><h1>Страница не найдена</h1><p class="lead">Возможно, ссылка изменилась. Найди материал в справочнике или открой нужный раздел.</p><div class="graph-actions"><a class="button primary" href="#contents">К оглавлению</a><a class="button outline" href="#formulas">Формулы</a><a class="button outline" href="#graphs">Графики</a></div></section>`;
+}
+
+function decodeQuery(value) {
+  try { return decodeURIComponent(value ?? ''); }
+  catch { return ''; }
+}
+
+function render({ moveFocus = false, restore = null } = {}) {
   const [route, id, target] = location.hash.slice(1).split('/');
   const topic = route === 'topic' && Object.hasOwn(topicById, id) ? topicById[id] : null;
   const sectionId = topic?.section ?? (route === 'section' ? id : null);
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
   const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
-  const contentsView = route === 'contents' || route === 'chapter';
-  const view = section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (contentsView ? 'contents' : 'home');
+  const contentsView = route === 'contents' || (route === 'chapter' && Object.hasOwn(chapterTitles, id));
+  const homeView = (!route || route === 'home') && !id;
+  const query = route === 'search' ? decodeQuery(id) : null;
+  const valid = section || graph || index || contentsView || homeView || query;
+  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (contentsView ? 'contents' : query ? 'search-' + query : 'home');
 
   if (main.dataset.view !== view) {
     chartObservers.forEach(observer => observer.disconnect());
     chartObservers = [];
     main.dataset.view = view;
-    main.innerHTML = section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : home(!contentsView);
-    main.querySelectorAll('[data-graph]').forEach(setupGraph);
-    if (index === 'graphs') setupGraphGallery();
+    main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : query ? searchPage(query) : home(!contentsView);
+    setupCharts();
+    if (index) setupIndex(index);
+    main.querySelector('#chapter-select')?.addEventListener('change', event => {
+      const chapter = event.target.value;
+      event.target.value = '';
+      if (chapter) navigate('#chapter/' + chapter);
+    });
+    main.querySelector('[data-refine-search]')?.addEventListener('click', () => {
+      searchInput.focus();
+      searchInput.select();
+    });
   }
 
-  document.title = `${(graph ? graphs[graph.kind].title : section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Учебный справочник')} · Микроэкономика`;
+  if (query !== null) searchInput.value = query;
+  document.querySelector('#clear-search').hidden = !searchInput.value;
+  document.title = `${!valid ? 'Страница не найдена' : (graph ? graphs[graph.kind].title : topic?.title ?? section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : query ? 'Поиск' : contentsView ? 'Оглавление' : 'Учебный справочник')} · Микроэкономика`;
 
   let anchor;
   if (topic) {
     const topicGraph = topic.graph ?? graphKinds(topic)[0];
-    anchor = target === 'graph' && topicGraph ? 'graph-' + topicGraph : 'concept-' + topic.id;
-  }
-  else if (section) anchor = 'section-' + section.id;
+    if (target?.startsWith('formula-') && [topic.key, ...(topic.extraKeys ?? [])].includes(target.slice(8))) anchor = 'formula-' + topic.id + '-' + target.slice(8);
+    else anchor = target === 'graph' && topicGraph ? 'graph-' + topicGraph : 'concept-' + topic.id;
+  } else if (section) anchor = 'section-' + section.id;
   else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
 
-  main.querySelectorAll('.reader-aside .section-list a').forEach(link => {
-    if (link.hash === '#section/' + section?.id) link.setAttribute('aria-current', 'location');
-    else link.removeAttribute('aria-current');
-  });
-
+  main.querySelectorAll('.chapter-picker').forEach(picker => { picker.open = false; });
   const activeNav = graph || index === 'graphs' ? '#graphs' : index === 'formulas' ? '#formulas' : '#contents';
   document.querySelectorAll('.primary-nav a').forEach(link => {
-    if (link.hash === activeNav) link.setAttribute('aria-current', 'page');
+    if (valid && !query && link.hash === activeNav) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
 
-  const destination = anchor ? document.getElementById(anchor) : null;
-  if (destination) {
-    destination.focus({ preventScroll: true });
-    destination.scrollIntoView();
-  } else if (moveFocus || route === 'contents') {
-    main.focus({ preventScroll: true });
-    window.scrollTo(0, 0);
-  }
+  const expectedHash = location.hash;
+  requestAnimationFrame(() => {
+    if (location.hash !== expectedHash) return;
+    updateFormulaOverflow();
+    if (restore) {
+      const focus = restore.focusId ? document.getElementById(restore.focusId) :
+        [...main.querySelectorAll('a')].find(link => link.getAttribute('href') === restore.focusHref);
+      if (focus && !focus.closest('[hidden]')) {
+        let details = focus.closest('details');
+        while (details) {
+          details.open = true;
+          details = details.parentElement.closest('details');
+        }
+        focus.focus({ preventScroll: true });
+      } else main.focus({ preventScroll: true });
+      window.scrollTo(0, restore.y);
+    } else {
+      const destination = anchor ? document.getElementById(anchor) : null;
+      if (destination) {
+        destination.focus({ preventScroll: true });
+        destination.scrollIntoView({ block: 'start' });
+      } else if (moveFocus || contentsView) {
+        main.focus({ preventScroll: true });
+        window.scrollTo(0, 0);
+      }
+    }
+    updateReadingPosition();
+  });
 }
 
 function normalized(value) {
-  return value.toLowerCase().replaceAll('ё', 'е').replaceAll('№', ' ').replaceAll(/[^\p{L}\p{N}∂]+/gu, ' ').trim();
+  return value.normalize('NFKC').toLowerCase().replaceAll('ё', 'е').replaceAll('№', ' ').replaceAll(/[^\p{L}\p{N}∂]+/gu, ' ').trim();
+}
+
+function formulaText(key) {
+  return formulas[key].replaceAll(/<[^>]*>/g, ' ').replaceAll(/&[^;]+;/g, ' ');
 }
 
 const searchItems = [
-  ...topics.map(topic => ({
-    href: '#topic/' + topic.id, title: topic.title, label: '§ ' + topic.section + ' · с. ' + topic.page,
-    keywords: normalized([topic.title, sectionTitles[topic.section], topic.tag, topic.summary, topic.section, topic.symbols.map(item => item[0]).join(' '),
-      { marginal: 'mu tu au мю предельная', derivative: 'mux muy частные производные дельта ∂', optimum: 'оптимальный равновесие mu px', budget: 'бюджетное ограничение доход px py' }[topic.id] ?? ''].join(' '))
+  ...sections.flatMap(section => section.entries.map(topic => ({
+    href: '#topic/' + topic.id, title: topic.title, label: 'Понятие · § ' + topic.section + ' · с. ' + topic.page,
+    description: topic.summary,
+    aliases: [topic.tag, topic.symbols.map(item => item[0]).join(' ')].join(' '),
+    text: [topic.title, section.title, topic.tag, topic.summary, topic.plain, topic.note, topic.section, topic.symbols.flat().join(' ')].join(' ')
+  }))),
+  ...formulaEntries.map(({ key, topic }) => ({
+    href: '#topic/' + topic.id + '/formula-' + key, title: formulaNames[key], label: 'Формула · § ' + topic.section + ' · с. ' + topic.page,
+    description: topic.title,
+    aliases: formulaText(key),
+    text: ['формула', formulaNames[key], formulaText(key), topic.title, topic.tag, topic.symbols.flat().join(' ')].join(' ')
   })),
   ...galleryEntries.map(({ kind, topic }) => ({
     href: '#graph/' + kind, title: graphs[kind].title, label: 'График · § ' + topic.section,
-    keywords: normalized(['график', graphs[kind].title, topic.tag, graphSource(kind)].join(' '))
+    description: graphs[kind].caption,
+    aliases: graphSource(kind),
+    text: ['график', graphs[kind].title, graphs[kind].caption, topic.title, topic.tag, graphSource(kind)].join(' ')
   }))
-];
+].map(item => ({ ...item, titleWords: normalized(item.title), aliasWords: normalized(item.aliases), keywords: normalized(item.text) }));
+
+function findMaterials(query) {
+  const value = normalized(query);
+  if (!value) return [];
+  const terms = value.split(' ');
+  return searchItems.filter(item => terms.every(term => item.keywords.includes(term))).map(item => ({
+    ...item,
+    score: (item.titleWords === value ? 1000 : item.titleWords.startsWith(value) ? 500 : item.titleWords.includes(value) ? 250 : 0) +
+      (item.aliasWords.split(' ').includes(value) ? 350 : 0) + terms.filter(term => item.titleWords.includes(term)).length * 20
+  })).sort((a,b) => b.score - a.score);
+}
+
+function searchPage(query) {
+  const results = findMaterials(query);
+  return `${crumbs('Поиск')}<section class="collection search-page"><div class="eyebrow ink">ПО ВСЕМУ СПРАВОЧНИКУ</div><h1>Результаты поиска</h1><p class="lead">«${escapeHTML(query)}» · Найдено ${results.length}</p>${results.length ? `<div class="search-page-results">${results.map(item => `<a href="${item.href}"><small>${item.label}</small><strong>${item.title}</strong><span>${item.description}</span>${icon('arrow')}</a>`).join('')}</div>` : `<div class="empty-state"><h2>Материалы не найдены</h2><p>Попробуй более короткий запрос, название понятия или обозначение. Например, «издержки» или «MU».</p><button type="button" class="button primary" data-refine-search>Изменить запрос</button><a class="button outline" href="#contents">Открыть оглавление</a></div>`}</section>`;
+}
 
 let matches = [];
+let searchSelection = -1;
 
 function hideSearch() {
   searchResults.hidden = true;
+  searchResults.querySelectorAll('[aria-selected="true"]').forEach(option => option.setAttribute('aria-selected', 'false'));
+  searchInput.setAttribute('aria-expanded', 'false');
+  searchInput.removeAttribute('aria-activedescendant');
+  searchSelection = -1;
   searchStatus.textContent = '';
 }
 
 function showSearch() {
-  const query = normalized(searchInput.value);
-  if (!query) {
+  document.querySelector('#clear-search').hidden = !searchInput.value;
+  const query = searchInput.value.trim();
+  if (!normalized(query)) {
     matches = [];
     hideSearch();
     return;
   }
-  matches = searchItems.filter(item => query.split(' ').every(term => item.keywords.includes(term)));
-  searchResults.innerHTML = matches.length ? matches.map(item =>
-    `<a href="${item.href}"><strong>${item.title}</strong><small>${item.label}</small></a>`).join('') : '<p>Ничего не найдено. Попробуй «MRTS», «КПВ» или «налог».</p>';
+  matches = findMaterials(query);
+  searchSelection = -1;
+  searchInput.removeAttribute('aria-activedescendant');
+  const suggestions = matches.slice(0, 6);
+  const searchHref = '#search/' + encodeURIComponent(query);
+  searchResults.innerHTML = `<div class="search-results-header">${matches.length ? `Найдено ${matches.length} · Выбери материал` : 'Ничего не найдено'}</div><div id="search-options" role="listbox" aria-label="Найденные материалы">${suggestions.map((item,i) => `<a id="search-option-${i}" role="option" aria-selected="false" tabindex="-1" href="${item.href}"><strong>${item.title}</strong><small>${item.label}</small></a>`).join('')}<a id="search-option-${suggestions.length}" role="option" aria-selected="false" tabindex="-1" class="search-all" href="${escapeHTML(searchHref)}">${matches.length ? 'Все результаты' : 'Изменить запрос'} ${icon('arrow')}</a></div>`;
   searchResults.hidden = false;
-  searchStatus.textContent = `Найдено материалов: ${matches.length}`;
+  searchInput.setAttribute('aria-expanded', 'true');
+  searchStatus.textContent = `Найдено ${matches.length} материалов. Используй стрелки для выбора или Enter для всех результатов.`;
 }
+
+function selectSearchResult(direction) {
+  if (searchResults.hidden) showSearch();
+  const options = [...searchResults.querySelectorAll('[role="option"]')];
+  if (!options.length || searchResults.hidden) return;
+  searchSelection = Math.max(-1, Math.min(options.length - 1, searchSelection + direction));
+  options.forEach((option,i) => option.setAttribute('aria-selected', String(i === searchSelection)));
+  if (searchSelection < 0) searchInput.removeAttribute('aria-activedescendant');
+  else {
+    searchInput.setAttribute('aria-activedescendant', options[searchSelection].id);
+    options[searchSelection].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+let historySequence = Date.now();
+let activeHistoryKey = history.state?.microeconomicKey ?? ++historySequence;
+let activeHash = location.hash || '#home';
+const historyPositions = new Map();
+const routePositions = new Map();
+history.scrollRestoration = 'manual';
+history.replaceState({ ...history.state, microeconomicKey: activeHistoryKey }, '');
+
+function savePosition() {
+  const focus = document.activeElement;
+  const previous = historyPositions.get(activeHistoryKey);
+  const position = {
+    y: window.scrollY,
+    focusId: main.contains(focus) && focus.id ? focus.id : null,
+    focusHref: main.contains(focus) && focus.closest('a') ? focus.closest('a').getAttribute('href') : previous?.focusHref
+  };
+  historyPositions.set(activeHistoryKey, position);
+  routePositions.set(activeHash, position);
+}
+
+function navigate(href, restoreIndex = false) {
+  savePosition();
+  hideSearch();
+  const restore = restoreIndex ? routePositions.get(href) : null;
+  if (href !== location.hash) {
+    activeHistoryKey = ++historySequence;
+    history.pushState({ microeconomicKey: activeHistoryKey }, '', href);
+    activeHash = href;
+  }
+  render({ moveFocus: true, restore });
+}
+
+function updateReadingPosition() {
+  const readerSections = [...main.querySelectorAll('.reader-section')];
+  if (!readerSections.length) return;
+  const current = readerSections.filter(section => section.getBoundingClientRect().top <= 100).at(-1) ?? readerSections[0];
+  const currentLabel = main.querySelector('[data-current-section]');
+  if (currentLabel) currentLabel.textContent = '§ ' + current.id.slice(8) + ' · ' + current.querySelector('h2').textContent;
+  main.querySelectorAll('[data-reader-nav] a').forEach(link => {
+    if (link.hash === '#section/' + current.id.slice(8)) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
+}
+
+let scrollFrame = 0;
+window.addEventListener('scroll', () => {
+  if (scrollFrame) return;
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0;
+    savePosition();
+    updateReadingPosition();
+  });
+}, { passive: true });
+window.addEventListener('pagehide', savePosition);
+window.addEventListener('resize', updateFormulaOverflow);
+window.addEventListener('beforeprint', () => main.querySelectorAll('[data-graph]').forEach(setupGraph));
+window.addEventListener('popstate', event => {
+  savePosition();
+  activeHistoryKey = event.state?.microeconomicKey ?? ++historySequence;
+  activeHash = location.hash || '#home';
+  history.replaceState({ ...event.state, microeconomicKey: activeHistoryKey }, '');
+  hideSearch();
+  render({ moveFocus: true, restore: historyPositions.get(activeHistoryKey) });
+});
+window.addEventListener('hashchange', () => {
+  if (activeHash === (location.hash || '#home')) return;
+  savePosition();
+  activeHash = location.hash || '#home';
+  activeHistoryKey = ++historySequence;
+  history.replaceState({ microeconomicKey: activeHistoryKey }, '');
+  hideSearch();
+  render({ moveFocus: true });
+});
 
 searchInput.addEventListener('input', showSearch);
 searchInput.addEventListener('focus', showSearch);
-searchForm.addEventListener('submit', event => {
-  event.preventDefault();
-  if (matches.length) {
-    const href = matches[0].href;
-    hideSearch();
-    if (location.hash === href) render(true);
-    else location.hash = href;
+searchInput.addEventListener('keydown', event => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    selectSearchResult(event.key === 'ArrowDown' ? 1 : -1);
   }
 });
-searchResults.addEventListener('click', event => {
-  if (event.target.closest('a')) hideSearch();
+searchForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const selected = searchResults.hidden ? null : searchResults.querySelector('[aria-selected="true"]');
+  const query = searchInput.value.trim();
+  if (selected || query) navigate(selected?.getAttribute('href') ?? '#search/' + encodeURIComponent(query));
+});
+document.querySelector('#clear-search').addEventListener('click', () => {
+  searchInput.value = '';
+  showSearch();
+  searchInput.focus();
 });
 document.addEventListener('click', event => {
   if (!event.target.closest('.search')) hideSearch();
-  const href = event.target.closest('a')?.getAttribute('href');
-  if (href?.startsWith('#') && href === location.hash && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
-    event.preventDefault();
-    render(true);
-  }
+  const link = event.target.closest('a');
+  const href = link?.getAttribute('href');
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || link?.target === '_blank' || !href?.startsWith('#')) return;
+  event.preventDefault();
+  navigate(href, link.hasAttribute('data-restore-index'));
+});
+document.addEventListener('focusin', event => {
+  if (!event.target.closest('.search')) hideSearch();
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !searchResults.hidden) {
+    event.preventDefault();
     searchInput.focus();
     hideSearch();
   }
@@ -504,6 +769,5 @@ function setupPullRefresh() {
   document.addEventListener('touchcancel', reset, { passive: true });
 }
 
-window.addEventListener('hashchange', () => render(true));
 render();
 setupPullRefresh();

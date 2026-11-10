@@ -2,22 +2,22 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Учебный справочник по микроэкономике. Формулы, обозначения и графики по темам учебника.">
-  <meta name="theme-color" content="#f6f6f0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Справочник по микроэкономике с понятными определениями, 64 формулами и 78 графиками. Поиск по понятиям, обозначениям и темам учебника.">
+  <meta name="theme-color" content="#f5f4ee">
   <title>Микроэкономика · Учебный справочник</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Микроэкономика">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css">
-  <script defer src="formulas.js"></script>
-  <script defer src="content.js"></script>
-  <script defer src="lecture-content.js"></script>
-  <script defer src="graphs.js"></script>
-  <script defer src="slide-graphs.js"></script>
-  <script defer src="app.js"></script>
+  <link rel="manifest" href="manifest.webmanifest?v=20261111-2">
+  <link rel="stylesheet" href="style.css?v=20261111-2">
+  <script defer src="formulas.js?v=20261111-2"></script>
+  <script defer src="content.js?v=20261111-2"></script>
+  <script defer src="lecture-content.js?v=20261111-2"></script>
+  <script defer src="graphs.js?v=20261111-2"></script>
+  <script defer src="slide-graphs.js?v=20261111-2"></script>
+  <script defer src="app.js?v=20261111-2"></script>
 </head>
 <body>
   <div class="refresh-status" role="status" aria-live="polite" data-active="false"></div>
@@ -26,18 +26,19 @@
     <div class="top-inner">
       <a class="brand" href="#home"><span class="mark" aria-hidden="true">μ</span><span>Микроэкономика<small>УЧЕБНЫЙ СПРАВОЧНИК</small></span></a>
       <nav class="primary-nav" aria-label="Основные разделы">
-        <a href="#contents"><span aria-hidden="true">☰</span>Оглавление</a>
-        <a href="#formulas"><span aria-hidden="true">ƒ</span>Формулы</a>
-        <a href="#graphs"><span aria-hidden="true">⌁</span>Графики</a>
+        <a href="#contents"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a2 2 0 0 1 2 2v15a3 3 0 0 0-3-2H4V4Zm16 0h-6a2 2 0 0 0-2 2v15a3 3 0 0 1 3-2h5V4Z"/></svg>Оглавление</a>
+        <a href="#formulas"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h-3a3 3 0 0 0-3 3l-2 10a3 3 0 0 1-3 3H4m3-10h9"/></svg>Формулы</a>
+        <a href="#graphs"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7"/></svg>Графики</a>
       </nav>
       <div class="search">
         <form id="search-form" role="search">
           <label class="sr" for="search">Поиск по справочнику</label>
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
-          <input id="search" type="search" placeholder="Поиск по справочнику" autocomplete="off" aria-controls="search-results">
+          <input id="search" type="search" role="combobox" placeholder="Понятие, формула или график" autocomplete="off" aria-controls="search-options" aria-expanded="false" aria-autocomplete="list" aria-haspopup="listbox" enterkeyhint="search">
+          <button id="clear-search" type="button" class="search-clear" aria-label="Очистить поиск" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
           <kbd aria-hidden="true">/</kbd>
         </form>
-        <div id="search-results" class="search-results" hidden></div>
+        <div id="search-results" class="search-results" hidden><div id="search-options" role="listbox" aria-label="Найденные материалы"></div></div>
         <div id="search-status" class="sr" role="status"></div>
       </div>
     </div>
