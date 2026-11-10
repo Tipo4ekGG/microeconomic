@@ -80,19 +80,31 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
 .reader h1, .collection h1 { font-size: clamp(33px, 5vw, 60px); margin: 11px 0 20px; overflow-wrap: anywhere; }
 .reader h2 { font-size: 25px; margin-bottom: 12px; }
 .lead { color: var(--muted); font-size: 17px; margin: 16px 0; }
-.formula { width: fit-content; max-width: 100%; padding: 10px 15px; border-radius: 7px; background: var(--mint); color: var(--navy); font: clamp(18px, 3vw, 30px)/1.5 var(--serif); }
-.formula var { font-style: italic; }
-.formula sub { font-size: .63em; }
-.formula-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.formula {
+  width: fit-content;
+  max-width: 100%;
+  padding: 9px 12px;
+  overflow-x: auto;
+  border-radius: 7px;
+  background: var(--mint);
+  color: var(--navy);
+  font-size: clamp(17px, 3vw, 27px);
+}
+.formula math { font-size: inherit; }
+.formula mtd { text-align: left; }
+@media (max-width: 350px) {
+  .formula { padding-inline: 8px; }
+}
+.formula-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .note { font-size: 14px; color: var(--muted); }
 .reader-aside h2 { font-size: 23px; margin: 20px 0 8px; }
 .reader-aside h2:first-child { margin-top: 8px; }
 .collection { max-width: 790px; }
 .collection .graph-list a { padding-block: 14px; }
-.formula-index { display: grid; gap: 8px; }
-.formula-index a { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 7px; padding: 10px; }
+.formula-index { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.formula-index a { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 7px; padding: 10px; }
 .formula-index a:hover { border-color: var(--accent); }
-.formula-index .formula { font-size: 20px; }
+.formula-index .formula { font-size: clamp(16px, 2.7vw, 21px); }
 .index-label { font-weight: 700; }
 .index-label small { display: block; color: var(--muted); font-weight: 400; }
 .study-chart { margin: 25px 0 0; padding: 15px; background: var(--page); border: 1px solid var(--line); border-radius: 10px; }
@@ -129,7 +141,7 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
   .search-results { width: 100%; }
   .hero { grid-template-columns: 1fr; margin-top: 16px; padding: 24px; }
   .hero-chart { display: none; }
-  .reader-grid { grid-template-columns: 1fr; gap: 20px; }
+  .reader-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 }
 @media (max-width: 410px) {
   .brand { gap: 6px; font-size: 13px; }

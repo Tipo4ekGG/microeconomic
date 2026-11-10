@@ -1,14 +1,3 @@
-Object.assign(formulas, {
-  demandFactors: '<var>Q</var><sub>D</sub> = <var>f</var>(<var>P</var>, <var>I</var>, <var>P</var><sub>sub</sub>, <var>P</var><sub>com</sub>, <var>Z</var>, <var>W</var>, <var>N</var>)',
-  supplyFactors: '<var>Q</var><sub>S</sub> = <var>f</var>(<var>P</var>, <var>P</var><sub>r</sub>, <var>A</var>, <var>T</var>, <var>N</var>)',
-  discreteConsumerSurplus: '<var>CS</var> = Σ (<var>v</var><sub>i</sub> − <var>P</var>)',
-  discreteProducerSurplus: '<var>PS</var> = Σ (<var>P</var> − <var>c</var><sub>i</sub>)',
-  totalUtility: '<var>TU</var>(<var>Q</var>) = Σ <var>MU</var><sub>i</sub>',
-  priceEffects: 'Δ<var>x</var> = (<var>x</var><sub>B</sub> − <var>x</var><sub>A</sub>) + (<var>x</var><sub>C</sub> − <var>x</var><sub>B</sub>)',
-  averageProduct: '<var>AP</var><sub>L</sub> = <var>TP</var> / <var>L</var>',
-  shortRunProduction: '<var>TP</var> = <var>F</var>(<var>L</var>, <var>K̄</var>)'
-});
-
 topics.push(
   {
     id: 'demand-factors', title: 'Функция спроса и её аргументы', section: '4.1', page: 80, key: 'demandFactors',
@@ -93,20 +82,6 @@ topics.push(
     graph: 'productCurves', related: ['production', 'isoquant']
   }
 );
-
-Object.assign(formulas, {
-  linearTechnology: '<var>Q</var> = <var>aL</var> + <var>bK</var>',
-  fixedTechnology: '<var>Q</var> = min(<var>aL</var>, <var>bK</var>)',
-  isocostLine: '<var>K</var> = <var>TC</var> / <var>r</var> − (<var>w</var> / <var>r</var>)<var>L</var>',
-  totalCost: '<var>TC</var>(<var>Q</var>) = <var>TFC</var> + <var>TVC</var>(<var>Q</var>)',
-  afc: '<var>AFC</var> = <var>TFC</var> / <var>Q</var>',
-  avc: '<var>AVC</var> = <var>TVC</var> / <var>Q</var>',
-  atc: '<var>ATC</var> = <var>TC</var> / <var>Q</var> = <var>AFC</var> + <var>AVC</var>',
-  marginalCost: '<var>MC</var> = Δ<var>TC</var> / Δ<var>Q</var> = Δ<var>TVC</var> / Δ<var>Q</var>',
-  marginalCostProduct: '<var>MC</var> = <var>w</var> / <var>MP</var><sub>L</sub>',
-  averageCostProduct: '<var>AVC</var> = <var>w</var> / <var>AP</var><sub>L</sub>',
-  longRunAverageCost: '<var>LRAC</var>(<var>Q</var>) = <var>LTC</var>(<var>Q</var>) / <var>Q</var> = min<sub>K</sub> <var>SRAC</var>(<var>Q</var>; <var>K</var>)'
-});
 
 topics.push(
   {

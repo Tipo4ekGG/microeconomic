@@ -1,13 +1,3 @@
-const formulas = {
-  utility: '<var>U</var> = <var>f</var>(<var>x</var>, <var>y</var>)',
-  marginal: '<var>MU</var> = Δ<var>TU</var> / Δ<var>Q</var>',
-  average: '<var>AU</var> = <var>TU</var> / <var>Q</var>',
-  partial: '<var>MU</var><sub>x</sub> = ∂<var>U</var> / ∂<var>x</var>',
-  mrs: '<var>MRS</var> = −Δ<var>y</var> / Δ<var>x</var>',
-  budget: '<var>P</var><sub>x</sub><var>x</var> + <var>P</var><sub>y</sub><var>y</var> = <var>I</var>',
-  optimum: '<var>MU</var><sub>x</sub> / <var>P</var><sub>x</sub> = <var>MU</var><sub>y</sub> / <var>P</var><sub>y</sub>'
-};
-
 const topics = [
   {
     id: 'utility', title: 'Функция полезности', section: '6.1', page: 140, key: 'utility', tag: 'Полезность',
@@ -82,47 +72,6 @@ const sectionTitles = {
   '6.5': 'Доход и кривая Энгеля',
   '6.6': 'Цена и кривая спроса'
 };
-
-Object.assign(formulas, {
-  opportunity: '<var>OC</var><sub>X</sub> = −Δ<var>Y</var> / Δ<var>X</var>',
-  marketDemand: '<var>Q</var><sub>D</sub>(<var>P</var>) = Σ <var>q</var><sub>D,i</sub>(<var>P</var>)',
-  marketSupply: '<var>Q</var><sub>S</sub>(<var>P</var>) = Σ <var>q</var><sub>S,i</sub>(<var>P</var>)',
-  equilibrium: '<var>Q</var><sub>D</sub>(<var>P</var><sup>*</sup>) = <var>Q</var><sub>S</sub>(<var>P</var><sup>*</sup>) = <var>Q</var><sup>*</sup>',
-  shortage: 'Дефицит = <var>Q</var><sub>D</sub> − <var>Q</var><sub>S</sub> при <var>Q</var><sub>D</sub> &gt; <var>Q</var><sub>S</sub>',
-  excess: 'Избыток = <var>Q</var><sub>S</sub> − <var>Q</var><sub>D</sub> при <var>Q</var><sub>S</sub> &gt; <var>Q</var><sub>D</sub>',
-  consumerSurplus: '<var>CS</var> = ½(<var>P</var><sub>max</sub> − <var>P</var><sup>*</sup>)<var>Q</var><sup>*</sup>',
-  producerSurplus: '<var>PS</var> = ½(<var>P</var><sup>*</sup> − <var>P</var><sub>min</sub>)<var>Q</var><sup>*</sup>',
-  totalSurplus: '<var>TS</var> = <var>CS</var> + <var>PS</var>',
-  traded: '<var>Q</var><sub>сделок</sub> = min(<var>Q</var><sub>D</sub>, <var>Q</var><sub>S</sub>)',
-  priceControlLoss: '<var>DWL</var> = ½[<var>P</var><sub>D</sub>(<var>Q</var>) − <var>P</var><sub>S</sub>(<var>Q</var>)](<var>Q</var><sup>*</sup> − <var>Q</var>)',
-  tax: '<var>P</var><sub>b</sub> − <var>P</var><sub>s</sub> = <var>t</var>',
-  taxRevenue: '<var>T</var> = <var>tQ</var><sub>t</sub>',
-  taxLoss: '<var>DWL</var> = ½<var>t</var>(<var>Q</var><sup>*</sup> − <var>Q</var><sub>t</sub>)',
-  incidence: 'Доля покупателя ≈ <var>E</var><sub>S</sub> / (<var>E</var><sub>S</sub> + |<var>E</var><sub>D</sub>|)',
-  subsidy: '<var>P</var><sub>s</sub> − <var>P</var><sub>b</sub> = <var>s</var>',
-  subsidyCost: '<var>G</var> = <var>sQ</var><sub>s</sub>',
-  elasticity: '<var>E</var><sub>D</sub> = %Δ<var>Q</var><sub>D</sub> / %Δ<var>P</var>',
-  midpoint: '<var>E</var><sub>дуг</sub> = (Δ<var>Q</var> / <var>Q̄</var>) / (Δ<var>P</var> / <var>P̄</var>)',
-  pointElasticity: '<var>E</var><sub>D</sub> = <var>Q</var>′<sub>D</sub>(<var>P</var>) · <var>P</var> / <var>Q</var><sub>D</sub>',
-  revenue: '<var>TR</var> = <var>P</var> · <var>Q</var>',
-  cross: '<var>E</var><sub>XY</sub> = %Δ<var>Q</var><sub>X</sub> / %Δ<var>P</var><sub>Y</sub>',
-  incomeElasticity: '<var>E</var><sub>I</sub> = %Δ<var>Q</var> / %Δ<var>I</var>',
-  supplyElasticity: '<var>E</var><sub>S</sub> = %Δ<var>Q</var><sub>S</sub> / %Δ<var>P</var>',
-  mrsPoint: '<var>MRS</var> = −d<var>y</var>/d<var>x</var> = <var>MU</var><sub>x</sub> / <var>MU</var><sub>y</sub>',
-  budgetSet: '<var>P</var><sub>x</sub><var>x</var> + <var>P</var><sub>y</sub><var>y</var> ≤ <var>I</var>',
-  consumerTangency: '<var>MRS</var> = <var>P</var><sub>x</sub> / <var>P</var><sub>y</sub>',
-  production: '<var>Q</var> = <var>f</var>(<var>L</var>, <var>K</var>)',
-  mpl: '<var>MP</var><sub>L</sub> = ∂<var>Q</var> / ∂<var>L</var>',
-  mpk: '<var>MP</var><sub>K</sub> = ∂<var>Q</var> / ∂<var>K</var>',
-  mrts: '<var>MRTS</var> = −d<var>K</var>/d<var>L</var> = <var>MP</var><sub>L</sub> / <var>MP</var><sub>K</sub>',
-  mrtsArc: '<var>MRTS</var><sub>отрезок</sub> = −Δ<var>K</var> / Δ<var>L</var>',
-  economicCost: '<var>C</var><sub>экон</sub> = <var>C</var><sub>явные</sub> + <var>C</var><sub>неявные</sub>',
-  accountingProfit: '<var>π</var><sub>бух</sub> = <var>TR</var> − <var>C</var><sub>явные</sub>',
-  economicProfit: '<var>π</var><sub>экон</sub> = <var>TR</var> − <var>C</var><sub>экон</sub>',
-  isocost: '<var>TC</var> = <var>wL</var> + <var>rK</var>',
-  producerTangency: '<var>MRTS</var> = <var>w</var> / <var>r</var>',
-  producerOptimum: '<var>MP</var><sub>L</sub> / <var>w</var> = <var>MP</var><sub>K</sub> / <var>r</var>'
-});
 
 topics.push(
   {
