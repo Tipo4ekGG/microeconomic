@@ -177,8 +177,11 @@ function setupGraph(figure) {
       marks = (graph.regions ?? []).map(region =>
         `<polygon class="${region.style}" points="${region.points.map(pos).join(' ')}"/>`).join('');
       marks += graph.series.map(series => line(series.points, series.style)).join('');
-      marks += (graph.labels ?? []).map(({ at, label }) =>
-        dot(at, 'chart-dot') + `<text x="${sx(at[0]) + 9}" y="${sy(at[1]) - 8}">${label}</text>`).join('');
+      marks += (graph.labels ?? []).map(({ at, label }) => {
+        const nearRight = at[0] > maxX * 0.9;
+        const x = sx(at[0]) + (nearRight ? -9 : 9);
+        return dot(at, 'chart-dot') + `<text x="${x}" y="${sy(at[1]) - 8}" text-anchor="${nearRight ? 'end' : 'start'}">${label}</text>`;
+      }).join('');
     } else {
       marks = line(graph.points, 'curve') + graph.points.map(point => dot(point, 'chart-dot')).join('');
     }

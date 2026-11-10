@@ -165,3 +165,143 @@ Object.assign(graphs, {
     labels: [{ at: [4, 4], label: 'Оптимум' }]
   }
 });
+
+const lectureFixedCost = 12.8;
+const lectureAvc = q => 3 - 0.6 * q + 0.05 * q ** 2;
+const lecturePlantCosts = [[3, 3.5], [6, 2.8], [9, 3.4]].map(([center, minimum]) =>
+  q => minimum + 0.1 * (q - center) ** 2
+);
+const compensatedX = Math.sqrt(72);
+
+Object.assign(graphs, {
+  supplyShiftEquilibrium: {
+    ...marketAxes, title: 'Равновесие при увеличении предложения',
+    caption: 'Спрос D остаётся прежним. Новое равновесие E₁ находится правее и ниже E: объём вырос, а цена снизилась.',
+    series: [...marketCurves, { label: 'Новое предложение S₁', style: 'blue-line', points: [[2, 2], [12, 12]] }],
+    labels: [equilibriumPoint, { at: [6, 6], label: 'E₁' }]
+  },
+  stepSurplus: {
+    title: 'Выигрыши на ступенчатых кривых', x: 'Количество Q', y: 'Цена P',
+    max: [6, 12], step: [1, 2],
+    caption: 'Каждая горизонтальная ступень относится к одной или нескольким единицам. При цене 6 продаются первые три единицы. Закрашенные области показывают выигрыш покупателей и продавцов.',
+    series: [
+      { label: 'Спрос', style: 'curve', points: [[0, 10], [1, 10], [1, 9], [2, 9], [2, 7], [3, 7], [3, 5], [5, 5]] },
+      { label: 'Предложение', style: 'green-line', points: [[0, 2], [1, 2], [1, 3], [2, 3], [2, 5], [3, 5], [3, 7], [5, 7]] },
+      { label: 'Рыночная цена', style: 'reference-line', points: [[0, 6], [5, 6]] }
+    ],
+    regions: [
+      { label: 'CS', style: 'area-peach', points: [[0, 6], [0, 10], [1, 10], [1, 9], [2, 9], [2, 7], [3, 7], [3, 6]] },
+      { label: 'PS', style: 'area-mint', points: [[0, 6], [0, 2], [1, 2], [1, 3], [2, 3], [2, 5], [3, 5], [3, 6]] }
+    ]
+  },
+  incomeExpansion: {
+    title: 'Параллельные бюджеты и оптимумы при росте дохода', x: 'Благо X', y: 'Благо Y',
+    max: [12, 12], step: [2, 2],
+    caption: 'Для U = xy и одинаковых неизменных цен каждый оптимум расположен на луче x = y. Бюджетные линии сдвигаются параллельно, а оптимальные количества обоих товаров растут.',
+    series: [
+      { label: 'Меньший бюджет', style: 'reference-line', points: [[0, 6], [6, 0]] },
+      { label: 'Больший бюджет', style: 'green-line', points: [[0, 12], [12, 0]] },
+      { label: 'Доход — потребление', style: 'blue-line', points: [[0, 0], [7, 7]] }
+    ],
+    labels: [{ at: [3, 3], label: 'A' }, { at: [6, 6], label: 'B' }]
+  },
+  engelShapes: {
+    title: 'Реакция на рост дохода при постоянных ценах', x: 'Доход I', y: 'Количество X',
+    max: [10, 10], step: [2, 2],
+    caption: 'Три условных случая: с увеличением дохода спрос растёт, остаётся прежним или падает на показанном участке.',
+    series: [
+      { label: 'Нормальное благо', style: 'green-line', points: [[2, 3], [10, 9]] },
+      { label: 'Нейтральное благо', style: 'reference-line', points: [[2, 5], [10, 5]] },
+      { label: 'Низшее благо', style: 'curve', points: [[2, 8], [10, 3]] }
+    ]
+  },
+  priceEffects: {
+    title: 'Разложение общего эффекта изменения цены', x: 'Благо X', y: 'Благо Y',
+    max: [24, 24], step: [4, 4],
+    caption: 'В примере U = xy. При снижении цены X движение A → B сохраняет уровень полезности U₀ и показывает эффект замещения. Переход B → C возвращает фактический бюджет и показывает эффект дохода.',
+    series: [
+      { label: 'Прежний бюджет', style: 'curve', points: [[0, 24], [12, 0]] },
+      { label: 'Новый бюджет', style: 'green-line', points: [[0, 24], [24, 0]] },
+      { label: 'Компенсированный бюджет', style: 'reference-line', points: [[0, 2 * compensatedX], [2 * compensatedX, 0]] },
+      { label: 'Исходная полезность U₀', style: 'blue-line', points: sampleCurve(3, 24, x => 72 / x) },
+      { label: 'Более высокая U₁', style: 'blue-line', points: sampleCurve(6, 24, x => 144 / x) }
+    ],
+    labels: [{ at: [6, 12], label: 'A' }, { at: [compensatedX, compensatedX], label: 'B' }, { at: [12, 12], label: 'C' }]
+  },
+  giffen: {
+    title: 'Восходящий участок спроса на товар Гиффена', x: 'Количество X', y: 'Цена X',
+    max: [10, 10], step: [2, 2],
+    caption: 'Условная схема. При снижении цены с уровня А до уровня Б количество сокращается: отрицательный эффект дохода по величине больше положительного эффекта замещения.',
+    series: [{ label: 'Участок спроса', style: 'curve', points: [[2, 2], [8, 8]] }],
+    labels: [{ at: [7, 7], label: 'А' }, { at: [3, 3], label: 'Б' }]
+  },
+  productCurves: {
+    title: 'Средний и предельный продукт труда', x: 'Количество труда L', y: 'Продукт труда',
+    max: [6, 30], step: [1, 5],
+    caption: 'На схеме AP достигает максимума в точке пересечения с MP. При L = 6 предельный продукт снижается до нуля, и общий выпуск достигает максимума.',
+    series: [
+      { label: 'Средний продукт AP', style: 'blue-line', points: sampleCurve(0.1, 6, l => 9 * l - l ** 2) },
+      { label: 'Предельный продукт MP', style: 'curve', points: sampleCurve(0, 6, l => 18 * l - 3 * l ** 2) }
+    ],
+    labels: [{ at: [4.5, 20.25], label: 'max AP' }, { at: [6, 0], label: 'MP = 0' }]
+  },
+  linearIsoquants: {
+    title: 'Прямые изокванты совершенных заменителей', x: 'Труд L', y: 'Капитал K',
+    max: [10, 10], step: [2, 2],
+    caption: 'При Q = L + K одинаковое количество труда всегда заменяет одинаковое количество капитала. Все изокванты имеют один наклон.',
+    series: [4, 6, 8].map((q, i) => ({
+      label: 'Q = ' + q, style: ['curve', 'green-line', 'blue-line'][i], points: [[0, q], [q, 0]]
+    }))
+  },
+  fixedIsoquants: {
+    title: 'Угловые изокванты при фиксированных пропорциях', x: 'Труд L', y: 'Капитал K',
+    max: [10, 10], step: [2, 2],
+    caption: 'При Q = min(L, K) рост только одного ресурса за углом не повышает выпуск. Чтобы перейти на более высокую изокванту, нужны оба фактора.',
+    series: [2, 4, 6].map((q, i) => ({
+      label: 'Q = ' + q, style: ['curve', 'green-line', 'blue-line'][i], points: [[q, 10], [q, q], [10, q]]
+    }))
+  },
+  isocostShift: {
+    title: 'Как меняется изокоста', x: 'Труд L', y: 'Капитал K', max: [12, 12], step: [2, 2],
+    caption: 'Зелёная линия показывает больший бюджет при прежних ценах. Синяя показывает подорожание труда при исходном бюджете: максимум труда уменьшается, максимум капитала остаётся прежним.',
+    series: [
+      { label: 'Исходная изокоста', style: 'curve', points: [[0, 8], [8, 0]] },
+      { label: 'Бюджет вырос', style: 'green-line', points: [[0, 12], [12, 0]] },
+      { label: 'Труд подорожал', style: 'blue-line', points: [[0, 8], [4, 0]] }
+    ]
+  },
+  totalCosts: {
+    title: 'Общие, постоянные и переменные издержки', x: 'Выпуск Q', y: 'Издержки',
+    max: [12, 50], step: [2, 10],
+    caption: 'Вертикальное расстояние от TVC до TC равно TFC. При нулевом выпуске общие издержки начинаются на уровне постоянных.',
+    series: [
+      { label: 'Общие TC', style: 'curve', points: sampleCurve(0, 12, q => q * lectureAvc(q) + lectureFixedCost) },
+      { label: 'Переменные TVC', style: 'green-line', points: sampleCurve(0, 12, q => q * lectureAvc(q)) },
+      { label: 'Постоянные TFC', style: 'reference-line', points: [[0, lectureFixedCost], [12, lectureFixedCost]] }
+    ]
+  },
+  averageCosts: {
+    title: 'Кривые AFC, AVC, ATC и MC', x: 'Выпуск Q', y: 'Издержки на единицу',
+    max: [12, 12], step: [2, 2],
+    caption: 'MC пересекает AVC и ATC в их минимумах. AFC падает с ростом выпуска, поэтому разница между ATC и AVC сокращается.',
+    series: [
+      { label: 'MC', style: 'curve', points: sampleCurve(2, 12, q => 3 - 1.2 * q + 0.15 * q ** 2) },
+      { label: 'AVC', style: 'green-line', points: sampleCurve(2, 12, lectureAvc) },
+      { label: 'ATC', style: 'blue-line', points: sampleCurve(2, 12, q => lectureAvc(q) + lectureFixedCost / q) },
+      { label: 'AFC', style: 'reference-line', points: sampleCurve(2, 12, q => lectureFixedCost / q) }
+    ],
+    labels: [{ at: [6, 1.2], label: 'min AVC' }, { at: [8, 3], label: 'min ATC' }]
+  },
+  longRunEnvelope: {
+    title: 'LRAC как нижняя огибающая краткосрочных кривых', x: 'Выпуск Q', y: 'Издержки на единицу',
+    max: [12, 12], step: [2, 2],
+    caption: 'Три тонкие кривые соответствуют трём мощностям. При каждом Q долгосрочная кривая следует за самой низкой из доступных кривых.',
+    series: [
+      ...lecturePlantCosts.map((cost, i) => ({
+        label: 'Мощность ' + (i + 1), style: ['reference-line', 'green-line', 'blue-line'][i],
+        points: sampleCurve(1, 12, cost)
+      })),
+      { label: 'LRAC', style: 'curve', points: sampleCurve(1, 12, q => Math.min(...lecturePlantCosts.map(cost => cost(q)))) }
+    ]
+  }
+});
