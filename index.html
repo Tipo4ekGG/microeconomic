@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Учебный справочник по микроэкономике. Формулы, графики и определения по теме «Выбор потребителя».">
+  <meta name="theme-color" content="#f6f6f0">
+  <title>Микроэкономика · Учебный справочник</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="content.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">К содержанию</a>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="#home"><span class="mark" aria-hidden="true">μ</span><span>Микроэкономика<small>УЧЕБНЫЙ СПРАВОЧНИК</small></span></a>
+      <nav aria-label="Основные разделы">
+        <a href="#home" data-section="home">Понятия</a>
+        <a href="#formulas" data-section="formulas">Формулы</a>
+        <a href="#graphs" data-section="graphs">Графики</a>
+      </nav>
+      <div class="search">
+        <form id="search-form" role="search">
+          <label class="sr" for="search">Поиск по справочнику</label>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
+          <input id="search" type="search" placeholder="Поиск по справочнику" autocomplete="off" aria-controls="search-results">
+          <kbd aria-hidden="true">/</kbd>
+        </form>
+        <div id="search-results" class="search-results" hidden></div>
+        <div id="search-status" class="sr" role="status"></div>
+      </div>
+    </div>
+  </header>
+  <main id="main" class="wrap" tabindex="-1"></main>
+  <footer class="wrap footer"><span>МИКРОЭКОНОМИКА</span><span>Тема 6 · Выбор потребителя</span></footer>
+  <noscript><p class="wrap">Включи JavaScript, чтобы открыть понятия, формулы и графики.</p></noscript>
+</body>
+</html>
