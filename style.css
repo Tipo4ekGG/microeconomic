@@ -182,3 +182,26 @@ h1, h2 { margin: 0; font-family: var(--serif); font-weight: 500; line-height: 1.
   .section-name small { font-size: 12px; }
   .symbol-list div { gap: 6px 10px; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
 }
+
+.hero h1 { font-size: clamp(28px, 4.7vw, 61px); overflow-wrap: anywhere; }
+.chapter { margin-top: 27px; scroll-margin-top: 16px; }
+.chapter h3 { margin: 0 0 9px; font: 500 clamp(21px, 3vw, 29px)/1.15 var(--serif); }
+.chapter h3 span { display: block; margin-bottom: 5px; color: var(--accent); font: 750 11px/1.4 var(--sans); letter-spacing: .13em; }
+.chapter-jumps { display: flex; flex-wrap: wrap; gap: 7px; }
+.chapter-jumps a { background: var(--mint); padding: 5px 10px; border-radius: 6px; font-size: 13px; }
+.chapter-jumps a:hover { color: var(--accent); }
+.blue-line { stroke: #436b98; stroke-width: 2.5; fill: none; }
+.area-peach { fill: #eac4af; }
+.area-mint { fill: #bdd8ca; }
+.area-blue { fill: #c2d4eb; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 13px; padding: 0; margin: 0 0 8px; color: var(--muted); list-style: none; font-size: 12px; }
+.chart-legend span { display: inline-block; width: 13px; height: 3px; margin-right: 5px; vertical-align: middle; }
+.legend-curve { background: var(--accent); }
+.legend-green-line { background: #407362; }
+.legend-blue-line { background: #436b98; }
+.legend-reference-line { border-top: 2px dashed #757e7e; }
+.chart-legend [class^="legend-area"] { height: 8px; }
+.legend-area-peach { background: #eac4af; }
+.legend-area-mint { background: #bdd8ca; }
+.legend-area-blue { background: #c2d4eb; }
+.formula-index .formula-group { max-width: 100%; }

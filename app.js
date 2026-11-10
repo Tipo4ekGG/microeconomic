@@ -5,9 +5,9 @@ const searchResults = document.querySelector('#search-results');
 const searchStatus = document.querySelector('#search-status');
 const number = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
 const topicById = Object.fromEntries(topics.map(topic => [topic.id, topic]));
-const sections = Object.entries(sectionTitles).map(([id, title]) => {
+const sections = Object.entries(sectionTitles).sort(([a], [b]) => a.localeCompare(b, 'ru', { numeric: true })).map(([id, title]) => {
   const entries = topics.filter(topic => topic.section === id);
-  return { id, title, entries, page: entries[0].page };
+  return { id, title, entries, page: entries[0].page, chapter: id.split('.')[0] };
 });
 const sectionById = Object.fromEntries(sections.map(section => [section.id, section]));
 
@@ -15,8 +15,8 @@ function formula(key) {
   return `<div class="formula">${formulas[key]}</div>`;
 }
 
-function sectionList(current) {
-  return `<ol class="section-list">${sections.map(section => `<li>
+function sectionList(items, current) {
+  return `<ol class="section-list">${items.map(section => `<li>
     <a href="#section/${section.id}"${section.id === current ? ' aria-current="page"' : ''}>
       <span class="section-number">${section.id}</span>
       <span class="section-name"><strong>${section.title}</strong><small>${section.entries.length === 1 ? section.entries[0].summary : section.entries.map(topic => topic.title).join(' · ')}</small></span>
@@ -36,10 +36,10 @@ function graphLinks() {
 function home() {
   return `<section class="hero">
     <div class="hero-content">
-      <div class="eyebrow"><span class="dot"></span> МИКРОЭКОНОМИКА <span class="divider"></span> ТЕМА&nbsp;06</div>
-      <h1>Выбор<br>потребителя<span>.</span></h1>
-      <p>Как сравнить наборы благ, учесть цены и бюджет и понять, какой выбор принесёт больше пользы.</p>
-      <div class="hero-actions"><a class="button primary" href="#contents">К подтемам <span aria-hidden="true">↓</span></a></div>
+      <div class="eyebrow"><span class="dot"></span> УЧЕБНЫЙ СПРАВОЧНИК</div>
+      <h1>Микроэкономика<span>.</span></h1>
+      <p>Определения, формулы и графики в порядке глав учебника.</p>
+      <div class="hero-actions"><a class="button primary" href="#contents">К оглавлению <span aria-hidden="true">↓</span></a></div>
     </div>
     <figure class="hero-chart" aria-label="Схема оптимального выбора: бюджетная линия касается кривой безразличия">
       <div class="chart-meta"><span><i></i> МОДЕЛЬ ВЫБОРА</span><span>РИС. 01</span></div>
@@ -57,21 +57,24 @@ function home() {
     </figure>
   </section>
   <section class="contents" id="contents" tabindex="-1" aria-labelledby="topic-heading">
-    <div class="section-top"><div><div class="eyebrow ink">ТЕМА 6 · ПО УЧЕБНИКУ</div><h2 id="topic-heading">Подтемы</h2></div><span class="count">${sections.length} параграфов</span></div>
-    <p class="contents-intro">Выбери параграф. Формулы, обозначения и графики собраны рядом с объяснениями.</p>
-    ${sectionList()}
+    <div class="section-top"><div><div class="eyebrow ink">ПО УЧЕБНИКУ</div><h2 id="topic-heading">Оглавление</h2></div><span class="count">${sections.length} параграфов</span></div>
+    <p class="contents-intro">Выбери тему, затем нужный параграф.</p>
+    <nav class="chapter-jumps" aria-label="Темы справочника">${Object.keys(chapterTitles).map(id => `<a href="#chapter/${id}" aria-label="Тема ${id}. ${chapterTitles[id]}">Тема ${id}</a>`).join('')}</nav>
+    ${Object.entries(chapterTitles).map(([id, title]) => `<section class="chapter" id="chapter-${id}" tabindex="-1">
+      <h3><span>ТЕМА ${id}</span>${title}</h3>${sectionList(sections.filter(section => section.chapter === id))}
+    </section>`).join('')}
   </section>`;
 }
 
-function crumbs(label) {
-  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Выбор потребителя</a><span aria-hidden="true">/</span><span aria-current="page">${label}</span></nav>`;
+function crumbs(label, chapter) {
+  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Оглавление</a><span aria-hidden="true">/</span>${chapter ? `<a href="#chapter/${chapter}">Тема ${chapter}</a><span aria-hidden="true">/</span>` : ''}<span aria-current="page">${label}</span></nav>`;
 }
 
 function conceptMarkup(topic, showTitle) {
   const links = topic.related.map(id => topicById[id]).filter(link => link.section !== topic.section);
   return `<section id="concept-${topic.id}" class="concept" tabindex="-1" aria-label="${topic.title}">
     ${showTitle ? `<h2>${topic.title}</h2>` : ''}
-    ${topic.id === 'marginal' ? `<div class="formula-group">${formula('marginal')}${formula('average')}</div>` : topic.key ? formula(topic.key) : ''}
+    ${topic.key ? `<div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(formula).join('')}</div>` : ''}
     <p class="lead">${topic.plain}</p>
     <h3>${topic.key ? 'Обозначения' : 'Термины'}</h3>
     <dl class="symbol-list">${topic.symbols.map(([symbol, meaning]) => `<div><dt>${symbol}</dt><dd>${meaning}</dd></div>`).join('')}</dl>
@@ -82,38 +85,30 @@ function conceptMarkup(topic, showTitle) {
 }
 
 function sectionPage(section) {
-  const next = sections[sections.indexOf(section) + 1];
-  return `${crumbs('§ ' + section.id)}
+  const chapterSections = sections.filter(item => item.chapter === section.chapter);
+  const next = chapterSections[chapterSections.indexOf(section) + 1];
+  return `${crumbs('§ ' + section.id, section.chapter)}
   <div class="reader-grid"><article class="reader">
-    <div class="eyebrow ink">ТЕМА 6 <span class="divider"></span> § ${section.id} · С. ${section.page}</div>
+    <div class="eyebrow ink">ТЕМА ${section.chapter} <span class="divider"></span> § ${section.id} · С. ${section.page}</div>
     <h1>${section.title}</h1>
     ${section.entries.length > 1 ? `<nav class="concept-jumps" aria-label="В этой подтеме">${section.entries.map(topic => `<a href="#topic/${topic.id}">${topic.title}</a>`).join('')}</nav>` : ''}
     ${section.entries.map(topic => conceptMarkup(topic, section.entries.length > 1)).join('')}
     ${next ? `<a class="section-next" href="#section/${next.id}"><small>СЛЕДУЮЩАЯ ПОДТЕМА</small><strong>§ ${next.id} · ${next.title} ↗</strong></a>` : ''}
   </article><aside class="reader-aside">
-    <h2>Подтемы главы</h2>${sectionList(section.id)}
+    <h2>Подтемы главы</h2>${sectionList(chapterSections, section.id)}
   </aside></div>`;
 }
 
 function collection(type) {
   if (type === 'graphs') {
-    return `${crumbs('Графики')}<section class="collection"><div class="eyebrow ink">ГРАФИКИ / ТЕМА 06</div><h1>Графики</h1>
+    return `${crumbs('Графики')}<section class="collection"><div class="eyebrow ink">УКАЗАТЕЛЬ ГРАФИКОВ</div><h1>Графики</h1>
       <p class="lead">Открой график, чтобы увидеть оси, прочитать пояснение и перейти к связанным понятиям.</p>${graphLinks()}</section>`;
   }
-  const links = [...topics.filter(topic => topic.key), { ...topicById.marginal, title: 'Средняя полезность', key: 'average' }];
-  return `${crumbs('Формулы')}<section class="collection"><div class="eyebrow ink">СПРАВОЧНИК / ТЕМА 06</div><h1>Формулы</h1>
+  const links = sections.flatMap(section => section.entries.filter(topic => topic.key));
+  return `${crumbs('Формулы')}<section class="collection"><div class="eyebrow ink">УКАЗАТЕЛЬ ФОРМУЛ</div><h1>Формулы</h1>
     <p class="lead">Выбери формулу, чтобы открыть её в нужном параграфе.</p>
-    <div class="formula-index">${links.map(topic => `<a href="#topic/${topic.id}"><span class="index-label">${topic.title} <small>§ ${topic.section} · с. ${topic.page}</small></span>${formula(topic.key)}</a>`).join('')}</div></section>`;
+    <div class="formula-index">${links.map(topic => `<a href="#topic/${topic.id}"><span class="index-label">${topic.title} <small>§ ${topic.section} · с. ${topic.page}</small></span><div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(formula).join('')}</div></a>`).join('')}</div></section>`;
 }
-
-const graphs = {
-  utility: { title: 'Совокупная полезность', caption: 'Наклон отрезка показывает, как изменилась полезность в расчёте на добавленную единицу.', x: 'Q', y: 'TU', max: [10, 20], points: [[0, 0], [2, 8], [4, 14], [6, 18], [8, 20], [10, 20]] },
-  mrs: { title: 'Кривая безразличия', caption: 'Для кривой xy = 6 все наборы равноценны. При движении вправо за дополнительную единицу X отдают всё меньше Y.', x: 'Благо X', y: 'Благо Y', max: [8, 8] },
-  optimum: { title: 'Оптимум потребителя', caption: 'При U = xy³ и бюджете 3x + y = 120 наилучшая доступная кривая безразличия касается бюджетной линии в точке (10; 90).', x: 'Благо X', y: 'Благо Y', max: [50, 130] },
-  engel: { title: 'Пример кривой Энгеля', caption: 'В этом примере при большем доходе выбирают больше единиц X.', x: 'Доход I', y: 'Количество X', max: [1000, 50], points: [[0, 0], [1000, 50]] },
-  demand: { title: 'Пример кривой спроса', caption: 'Каждая точка показывает выбранное количество X при своей цене.', x: 'Количество X', y: 'Цена X', max: [10, 10], points: [[2, 9], [4, 6], [6, 4], [8, 3], [10, 2]] },
-  budget: { title: 'Бюджетная линия', caption: 'Изменяй доход и цены. Бледная линия показывает исходное положение.', x: 'Благо X', y: 'Благо Y', max: [100, 180] }
-};
 
 function graphMarkup(kind) {
   const graph = graphs[kind];
@@ -126,6 +121,7 @@ function graphMarkup(kind) {
       ['py', 'Цена Pᵧ', 1, 6, 1, 1]
     ].map(([id, label, min, max, value, step]) => `<label><span>${label}<output for="${id}">${value}</output></span><input id="${id}" type="range" min="${min}" max="${max}" value="${value}" step="${step}"></label>`).join('')}</div>
     <p class="chart-status" aria-live="polite"></p><button class="reset" type="button">Сбросить значения</button>` : ''}
+    ${graph.series ? `<ul class="chart-legend" aria-label="Условные обозначения">${[...graph.series, ...(graph.regions ?? [])].map(item => `<li><span class="legend-${item.style}"></span>${item.label}</li>`).join('')}</ul>` : ''}
     <figcaption>${graph.caption}</figcaption>
   </figure>`;
 }
@@ -140,10 +136,10 @@ function setupGraph(figure) {
   const pos = ([x, y]) => `${sx(x)},${sy(y)}`;
   const line = (points, cls) => `<polyline class="${cls}" points="${points.map(pos).join(' ')}"/>`;
   const dot = ([x, y], cls) => `<circle class="${cls}" cx="${sx(x)}" cy="${sy(y)}" r="4.5"/>`;
-  const ticks = (max, count) => Array.from({ length: count + 1 }, (_, i) => max * i / count);
+  const ticks = (max, step = max / 5) => Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step);
   const axes = [
-    ...ticks(maxX, 5).map(x => `<path class="grid-line" d="M${sx(x)} ${top}V${bottom}"/><text text-anchor="middle" x="${sx(x)}" y="269">${number.format(x)}</text>`),
-    ...ticks(maxY, 5).filter(y => y > 0).map(y => `<path class="grid-line" d="M${left} ${sy(y)}H${right}"/><text text-anchor="end" x="49" y="${sy(y) + 4}">${number.format(y)}</text>`),
+    ...ticks(maxX, graph.step?.[0]).map(x => `<path class="grid-line" d="M${sx(x)} ${top}V${bottom}"/><text text-anchor="middle" x="${sx(x)}" y="269">${number.format(x)}</text>`),
+    ...ticks(maxY, graph.step?.[1]).filter(y => y > 0).map(y => `<path class="grid-line" d="M${left} ${sy(y)}H${right}"/><text text-anchor="end" x="49" y="${sy(y) + 4}">${number.format(y)}</text>`),
     `<path class="axis" d="M${left} ${top}V${bottom}H${right}"/><text x="${left}" y="19">${graph.y}</text><text text-anchor="end" x="${right}" y="293">${graph.x}</text>`
   ].join('');
   const svg = figure.querySelector('svg');
@@ -174,6 +170,12 @@ function setupGraph(figure) {
         return [x, 6 / x];
       });
       marks = line(curve, 'green-line');
+    } else if (graph.series) {
+      marks = (graph.regions ?? []).map(region =>
+        `<polygon class="${region.style}" points="${region.points.map(pos).join(' ')}"/>`).join('');
+      marks += graph.series.map(series => line(series.points, series.style)).join('');
+      marks += (graph.labels ?? []).map(({ at, label }) =>
+        dot(at, 'chart-dot') + `<text x="${sx(at[0]) + 9}" y="${sy(at[1]) - 8}">${label}</text>`).join('');
     } else {
       marks = line(graph.points, 'curve') + graph.points.map(point => dot(point, 'chart-dot')).join('');
     }
@@ -199,11 +201,11 @@ function render(moveFocus = false) {
   if (main.dataset.view !== view) {
     main.dataset.view = view;
     main.innerHTML = section ? sectionPage(section) : index ? collection(index) : home();
-    document.title = `${section?.title ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Выбор потребителя')} · Микроэкономика`;
+    document.title = `${section?.title ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Учебный справочник')} · Микроэкономика`;
     main.querySelectorAll('[data-graph]').forEach(setupGraph);
   }
 
-  const anchor = topic ? (target === 'graph' && topic.graph ? 'graph-' + topic.graph : 'concept-' + topic.id) : route === 'contents' ? 'contents' : null;
+  const anchor = topic ? (target === 'graph' && topic.graph ? 'graph-' + topic.graph : 'concept-' + topic.id) : route === 'chapter' && Object.hasOwn(chapterTitles, id) ? 'chapter-' + id : route === 'contents' ? 'contents' : null;
   const destination = anchor ? document.getElementById(anchor) : null;
   if (destination) {
     destination.focus({ preventScroll: true });
@@ -246,7 +248,7 @@ function showSearch() {
   }
   matches = searchItems.filter(item => query.split(' ').every(term => item.keywords.includes(term)));
   searchResults.innerHTML = matches.length ? matches.map(item =>
-    `<a href="${item.href}"><strong>${item.title}</strong><small>${item.label}</small></a>`).join('') : '<p>Ничего не найдено. Попробуй «MU» или «график спроса».</p>';
+    `<a href="${item.href}"><strong>${item.title}</strong><small>${item.label}</small></a>`).join('') : '<p>Ничего не найдено. Попробуй «MRTS», «КПВ» или «налог».</p>';
   searchResults.hidden = false;
   searchStatus.textContent = `Найдено материалов: ${matches.length}`;
 }
