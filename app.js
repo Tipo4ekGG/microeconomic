@@ -10,6 +10,13 @@ const sections = Object.entries(sectionTitles).sort(([a], [b]) => a.localeCompar
   return { id, title, entries, page: entries[0].page, chapter: id.split('.')[0] };
 });
 const sectionById = Object.fromEntries(sections.map(section => [section.id, section]));
+const graphKinds = topic => slideGraphGroups[topic.id] ?? (topic.graph ? [topic.graph] : []);
+const galleryEntries = sections.flatMap(section => section.entries.flatMap(topic =>
+  graphKinds(topic).map(kind => ({ kind, topic, section }))
+));
+const graphByKind = Object.fromEntries(galleryEntries.map(entry => [entry.kind, entry]));
+const galleryState = { query: '', chapter: 'all' };
+let chartObservers = [];
 
 function formula(key) {
   return `<div class="formula">${formulas[key]}</div>`;
@@ -26,11 +33,106 @@ function sectionList(items) {
   </li>`).join('')}</ol>`;
 }
 
-function graphLinks() {
-  const linked = topics.filter(topic => topic.graph);
-  return `<div class="graph-list">${linked.map(topic => `<a href="#topic/${topic.id}/graph">
-    <span class="graph-icon" aria-hidden="true">⌁</span><strong>${graphs[topic.graph].title}</strong><span aria-hidden="true">↗</span>
-  </a>`).join('')}</div>`;
+function graphSource(kind) {
+  return (slideGraphSources[kind] ?? '').split(' ').filter(Boolean).map(id => 'IMG_' + id).join(', ');
+}
+
+function graphPreview(kind) {
+  const graph = graphs[kind];
+  const [minX, minY] = graph.min ?? [0, 0];
+  const [maxX, maxY] = graph.max;
+  const series = graph.series?.filter(line => line.style !== 'guide-line')
+    ?? [{ style: 'curve', points: graph.points ?? [[0, 120], [40, 0]] }];
+  const x = value => 7 + (value - minX) / (maxX - minX) * 87;
+  const y = value => 58 - (value - minY) / (maxY - minY) * 48;
+  return `<svg class="graph-preview" viewBox="0 0 100 64" aria-hidden="true" focusable="false">
+    <path class="axis" d="M7 8V58H95"/>
+    ${series.slice(0, 3).map(line => `<polyline class="${line.style}" points="${line.points.map(([px, py]) =>
+      `${x(px).toFixed(1)},${y(py).toFixed(1)}`).join(' ')}"/>`).join('')}
+  </svg>`;
+}
+
+function graphGallery() {
+  const chapters = [...new Set(galleryEntries.map(entry => entry.section.chapter))];
+  return `${crumbs('Графики')}
+  <section class="collection graph-gallery">
+    <div class="eyebrow ink">АТЛАС ГРАФИКОВ</div><h1>Графики</h1>
+    <p class="lead">Выбери тему или введи название либо номер фото.</p>
+    <div class="gallery-controls">
+      <label>Найти график<input type="search" id="gallery-search" placeholder="Например, изокоста или IMG_1131" autocomplete="off"></label>
+      <label><span id="gallery-chapter-label">Тема</span><select id="gallery-chapter" aria-labelledby="gallery-chapter-label"><option value="all">Все темы</option>
+        ${chapters.map(chapter => `<option value="${chapter}">${chapter}. ${chapterTitles[chapter]}</option>`).join('')}
+      </select></label>
+    </div>
+    <p class="gallery-count" role="status"></p>
+    ${chapters.map(chapter => `<section class="gallery-group" data-gallery-group="${chapter}">
+      <h2><span>ТЕМА ${chapter}</span>${chapterTitles[chapter]}</h2>
+      <div class="gallery-grid">${galleryEntries.filter(entry => entry.section.chapter === chapter).map(({ kind, section }) => {
+        const source = graphSource(kind);
+        return `<a class="graph-card" href="#graph/${kind}" data-card="${kind}">
+          ${graphPreview(kind)}<span class="graph-card-text">
+            <small>§ ${section.id} · с. ${section.page}${source ? ' · Слайды' : ''}</small>
+            <strong>${graphs[kind].title}</strong>
+            <span>${graphs[kind].caption}</span>
+          </span><span class="graph-arrow" aria-hidden="true">↗</span>
+        </a>`;
+      }).join('')}</div>
+    </section>`).join('')}
+    <p class="gallery-empty" hidden>Подходящих графиков нет. Попробуй короткий запрос или выбери все темы.</p>
+  </section>`;
+}
+
+function setupGraphGallery() {
+  const input = main.querySelector('#gallery-search');
+  const select = main.querySelector('#gallery-chapter');
+  const cards = [...main.querySelectorAll('[data-card]')];
+  const groups = [...main.querySelectorAll('[data-gallery-group]')];
+  const count = main.querySelector('.gallery-count');
+  const empty = main.querySelector('.gallery-empty');
+  input.value = galleryState.query;
+  select.value = galleryState.chapter;
+
+  function filter() {
+    galleryState.query = input.value;
+    galleryState.chapter = select.value;
+    const terms = normalized(input.value).split(' ').filter(Boolean);
+    let visible = 0;
+    for (const card of cards) {
+      const { kind, topic, section } = graphByKind[card.dataset.card];
+      const graph = graphs[kind];
+      const text = normalized([graph.title, graph.caption, topic.title, topic.tag, section.title, graphSource(kind)].join(' '));
+      const matchesChapter = select.value === 'all' || select.value === section.chapter;
+      card.hidden = !matchesChapter || !terms.every(term => text.includes(term));
+      if (!card.hidden) visible++;
+    }
+    for (const group of groups) group.hidden = !group.querySelector('[data-card]:not([hidden])');
+    empty.hidden = visible !== 0;
+    count.textContent = `Показано ${visible} из ${cards.length}`;
+  }
+
+  input.addEventListener('input', filter);
+  select.addEventListener('change', filter);
+  filter();
+}
+
+function graphPage(entry) {
+  const { kind, topic, section } = entry;
+  const chapterEntries = galleryEntries.filter(item => item.section.chapter === section.chapter);
+  const i = chapterEntries.indexOf(entry);
+  return `${crumbs('§ ' + section.id + ' · График', { title: 'Графики', href: '#graphs' })}
+  <article class="collection graph-reader">
+    <div class="eyebrow ink">ТЕМА ${section.chapter} <span class="divider"></span> § ${section.id} · С. ${section.page}</div>
+    <h1>${graphs[kind].title}</h1>
+    ${graphMarkup(kind, null)}
+    <div class="graph-actions">
+      <a class="button primary" href="#topic/${topic.id}">К теории <span aria-hidden="true">↗</span></a>
+      <a class="button outline" href="#graphs">Все графики</a>
+    </div>
+    <nav class="graph-neighbors" aria-label="Графики этой темы">
+      ${chapterEntries[i - 1] ? `<a href="#graph/${chapterEntries[i - 1].kind}"><small>← ПРЕДЫДУЩИЙ</small><strong>${graphs[chapterEntries[i - 1].kind].title}</strong></a>` : '<span></span>'}
+      ${chapterEntries[i + 1] ? `<a href="#graph/${chapterEntries[i + 1].kind}"><small>СЛЕДУЮЩИЙ →</small><strong>${graphs[chapterEntries[i + 1].kind].title}</strong></a>` : ''}
+    </nav>
+  </article>`;
 }
 
 function home(showHero) {
@@ -70,8 +172,8 @@ function home(showHero) {
   </section>`;
 }
 
-function crumbs(label) {
-  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Оглавление</a><span aria-hidden="true">/</span><span aria-current="page">${label}</span></nav>`;
+function crumbs(label, parent) {
+  return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Оглавление</a><span aria-hidden="true">/</span>${parent ? `<a href="${parent.href}">${parent.title}</a><span aria-hidden="true">/</span>` : ''}<span aria-current="page">${label}</span></nav>`;
 }
 
 function conceptMarkup(topic, showTitle) {
@@ -84,7 +186,7 @@ function conceptMarkup(topic, showTitle) {
     <${heading} class="terms-title">${topic.key ? 'Обозначения' : 'Термины'}</${heading}>
     <dl class="symbol-list">${topic.symbols.map(([symbol, meaning]) => `<div><dt>${symbol}</dt><dd>${meaning}</dd></div>`).join('')}</dl>
     ${topic.note ? `<p class="note">${topic.note}</p>` : ''}
-    ${topic.graph ? graphMarkup(topic.graph, heading) : ''}
+    ${graphKinds(topic).map(kind => graphMarkup(kind, heading)).join('')}
     ${links.length ? `<div class="concept-links"><span>Связано</span>${links.map(link => `<a href="#topic/${link.id}">§ ${link.section} · ${link.title}</a>`).join('')}</div>` : ''}
   </section>`;
 }
@@ -107,10 +209,7 @@ function chapterPage(chapter) {
 }
 
 function collection(type) {
-  if (type === 'graphs') {
-    return `${crumbs('Графики')}<section class="collection"><div class="eyebrow ink">УКАЗАТЕЛЬ ГРАФИКОВ</div><h1>Графики</h1>
-      <p class="lead">Открой график, чтобы увидеть оси, прочитать пояснение и перейти к связанным понятиям.</p>${graphLinks()}</section>`;
-  }
+  if (type === 'graphs') return graphGallery();
   const links = sections.flatMap(section => section.entries.filter(topic => topic.key));
   return `${crumbs('Формулы')}<section class="collection"><div class="eyebrow ink">УКАЗАТЕЛЬ ФОРМУЛ</div><h1>Формулы</h1>
     <p class="lead">Выбери формулу, чтобы открыть её в нужном параграфе.</p>
@@ -119,8 +218,11 @@ function collection(type) {
 
 function graphMarkup(kind, heading) {
   const graph = graphs[kind];
+  const source = graphSource(kind);
+  const legend = [...(graph.series ?? []), ...(graph.regions ?? [])];
   return `<figure id="graph-${kind}" tabindex="-1" class="study-chart" data-graph="${kind}">
-    <div class="eyebrow ink">ГРАФИК</div><${heading} class="chart-title">${graph.title}</${heading}>
+    ${heading ? `<div class="chart-header"><${heading} class="chart-title">${graph.title}</${heading}>
+      <a class="chart-open" href="#graph/${kind}" aria-label="Открыть крупно: ${graph.title}">Крупно <span aria-hidden="true">↗</span></a></div>` : ''}
     <svg viewBox="0 0 590 302" role="img" aria-label="${graph.title}"></svg>
     ${kind === 'budget' ? `<div class="controls">${[
       ['income', 'Доход I', 60, 180, 120, 10],
@@ -128,8 +230,12 @@ function graphMarkup(kind, heading) {
       ['py', 'Цена Pᵧ', 1, 6, 1, 1]
     ].map(([id, label, min, max, value, step]) => `<label><span>${label}<output for="${id}">${value}</output></span><input id="${id}" type="range" min="${min}" max="${max}" value="${value}" step="${step}"></label>`).join('')}</div>
     <p class="chart-status" aria-live="polite"></p><button class="reset" type="button">Сбросить значения</button>` : ''}
-    ${graph.series ? `<ul class="chart-legend" aria-label="Условные обозначения">${[...graph.series, ...(graph.regions ?? [])].map(item => `<li><span class="legend-${item.style}"></span>${item.label}</li>`).join('')}</ul>` : ''}
-    <figcaption>${graph.caption}</figcaption>
+    ${legend.some(item => item.label) ? `<ul class="chart-legend" aria-label="Условные обозначения">${legend.map((item, i) => {
+      if (!item.label) return '';
+      const swatch = `<span class="legend-${item.style}"></span>${item.label}`;
+      return `<li>${graph.toggleSeries && i < graph.series.length ? `<button type="button" aria-pressed="true" data-curve="${i}">${swatch}</button>` : swatch}</li>`;
+    }).join('')}</ul>` : ''}
+    <figcaption>${graph.caption}${source ? `<small class="chart-source">Слайды: ${source}</small>` : ''}</figcaption>
   </figure>`;
 }
 
@@ -137,58 +243,56 @@ function setupGraph(figure) {
   const kind = figure.dataset.graph;
   const graph = graphs[kind];
   const [maxX, maxY] = graph.max;
-  const left = 59, right = 558, top = 34, bottom = 245;
-  const sx = x => left + (right - left) * x / maxX;
-  const sy = y => bottom - (bottom - top) * y / maxY;
-  const pos = ([x, y]) => `${sx(x)},${sy(y)}`;
-  const line = (points, cls) => `<polyline class="${cls}" points="${points.map(pos).join(' ')}"/>`;
-  const dot = ([x, y], cls) => `<circle class="${cls}" cx="${sx(x)}" cy="${sy(y)}" r="4.5"/>`;
-  const ticks = (max, step = max / 5) => Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step);
-  const axes = [
-    ...ticks(maxX, graph.step?.[0]).map(x => `<path class="grid-line" d="M${sx(x)} ${top}V${bottom}"/><text text-anchor="middle" x="${sx(x)}" y="269">${number.format(x)}</text>`),
-    ...ticks(maxY, graph.step?.[1]).filter(y => y > 0).map(y => `<path class="grid-line" d="M${left} ${sy(y)}H${right}"/><text text-anchor="end" x="49" y="${sy(y) + 4}">${number.format(y)}</text>`),
-    `<path class="axis" d="M${left} ${top}V${bottom}H${right}"/><text x="${left}" y="19">${graph.y}</text><text text-anchor="end" x="${right}" y="293">${graph.x}</text>`
-  ].join('');
+  const [minX, minY] = graph.min ?? [0, 0];
   const svg = figure.querySelector('svg');
   const inputs = [...figure.querySelectorAll('input')];
+  const hiddenCurves = new Set();
+  let renderedWidth = 0;
 
   function draw() {
+    renderedWidth = svg.clientWidth;
+    const width = Math.max(240, renderedWidth);
+    const height = width < 400 ? 248 : 320;
+    const left = width < 400 ? 39 : 53;
+    const right = width - 16, top = 29, bottom = height - 46;
+    const sx = x => left + (right - left) * (x - minX) / (maxX - minX);
+    const sy = y => bottom - (bottom - top) * (y - minY) / (maxY - minY);
+    const pos = ([x, y]) => `${sx(x).toFixed(2)},${sy(y).toFixed(2)}`;
+    const line = (points, cls) => `<polyline class="${cls}" points="${points.map(pos).join(' ')}"/>`;
+    const dot = ([x, y]) => `<circle class="chart-dot" cx="${sx(x)}" cy="${sy(y)}" r="4"/>`;
+    const ticks = (min, max, step = (max - min) / 5) =>
+      Array.from({ length: Math.floor((max - min) / step + 1e-8) + 1 }, (_, i) => min + i * step);
+    const xTicks = ticks(minX, maxX, graph.step?.[0]);
+    const zeroY = sy(Math.max(0, minY));
+    const axes = [
+      ...xTicks.map((x, i) => `<path class="grid-line" d="M${sx(x)} ${top}V${bottom}"/>${width >= 400 || xTicks.length <= 7 || i % 2 === 0 ? `<text text-anchor="middle" x="${sx(x)}" y="${bottom + 17}">${number.format(x)}</text>` : ''}`),
+      ...ticks(minY, maxY, graph.step?.[1]).filter(y => y !== 0).map(y => `<path class="grid-line" d="M${left} ${sy(y)}H${right}"/><text text-anchor="end" x="${left - 7}" y="${sy(y) + 4}">${number.format(y)}</text>`),
+      `<path class="axis" d="M${left} ${top}V${bottom} M${left} ${zeroY}H${right}"/><text class="axis-label" x="${left}" y="15">${graph.y}</text><text class="axis-label" text-anchor="end" x="${right}" y="${height - 7}">${graph.x}</text>`
+    ].join('');
+
     let marks;
     if (kind === 'budget') {
       const [income, px, py] = inputs.map(input => Number(input.value));
       inputs.forEach(input => { input.parentElement.querySelector('output').value = number.format(input.value); });
       const points = [[0, income / py], [income / px, 0]];
       marks = `<polygon class="budget-area" points="${[[0, 0], ...points].map(pos).join(' ')}"/>`;
-      marks += line([[0, 120], [40, 0]], 'reference-line') + line(points, 'curve') + points.map(point => dot(point, 'chart-dot')).join('');
+      marks += line([[0, 120], [40, 0]], 'reference-line') + line(points, 'curve') + points.map(dot).join('');
       figure.querySelector('.chart-status').textContent = `Пересечения с осями · X: ${number.format(income / px)} · Y: ${number.format(income / py)}`;
-    } else if (kind === 'optimum') {
-      const u = 10 * 90 ** 3;
-      const start = u / maxY ** 3;
-      const curve = Array.from({ length: 100 }, (_, i) => {
-        const x = start + (maxX - start) * i / 99;
-        return [x, Math.cbrt(u / x)];
-      });
-      marks = line([[0, 120], [40, 0]], 'curve') + line(curve, 'green-line') + dot([10, 90], 'chart-dot');
-      marks += `<text x="${sx(10) + 10}" y="${sy(90) - 9}">Оптимум</text>`;
-    } else if (kind === 'mrs') {
-      const start = 6 / maxY;
-      const curve = Array.from({ length: 60 }, (_, i) => {
-        const x = start + (maxX - start) * i / 59;
-        return [x, 6 / x];
-      });
-      marks = line(curve, 'green-line');
     } else if (graph.series) {
       marks = (graph.regions ?? []).map(region =>
         `<polygon class="${region.style}" points="${region.points.map(pos).join(' ')}"/>`).join('');
-      marks += graph.series.map(series => line(series.points, series.style)).join('');
-      marks += (graph.labels ?? []).map(({ at, label }) => {
-        const nearRight = at[0] > maxX * 0.9;
-        const x = sx(at[0]) + (nearRight ? -9 : 9);
-        return dot(at, 'chart-dot') + `<text x="${x}" y="${sy(at[1]) - 8}" text-anchor="${nearRight ? 'end' : 'start'}">${label}</text>`;
-      }).join('');
+      marks += graph.series.map((series, i) => hiddenCurves.has(i) ? '' : line(series.points, series.style)).join('');
+      marks += (graph.labels ?? []).filter(label => !label.requires?.some(i => hiddenCurves.has(i)))
+        .map(({ at, label, dx, dy, anchor }) => {
+          const nearRight = sx(at[0]) + label.length * 7 > right;
+          const x = sx(at[0]) + (dx ?? (nearRight ? -7 : 7));
+          const y = sy(at[1]) + (dy ?? -8);
+          return dot(at) + `<text class="point-label" x="${x}" y="${y}" text-anchor="${anchor ?? (nearRight ? 'end' : 'start')}">${label}</text>`;
+        }).join('');
     } else {
-      marks = line(graph.points, 'curve') + graph.points.map(point => dot(point, 'chart-dot')).join('');
+      marks = line(graph.points, 'curve') + graph.points.map(dot).join('');
     }
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.innerHTML = axes + marks;
   }
 
@@ -197,7 +301,18 @@ function setupGraph(figure) {
     inputs.forEach(input => { input.value = input.defaultValue; });
     draw();
   });
+  for (const button of figure.querySelectorAll('[data-curve]')) {
+    button.addEventListener('click', () => {
+      const i = Number(button.dataset.curve);
+      if (!hiddenCurves.delete(i)) hiddenCurves.add(i);
+      button.setAttribute('aria-pressed', String(!hiddenCurves.has(i)));
+      draw();
+    });
+  }
   draw();
+  const observer = new ResizeObserver(() => { if (svg.clientWidth !== renderedWidth) draw(); });
+  observer.observe(svg);
+  chartObservers.push(observer);
 }
 
 function render(moveFocus = false) {
@@ -206,24 +321,37 @@ function render(moveFocus = false) {
   const sectionId = topic?.section ?? (route === 'section' ? id : null);
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
+  const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
   const contentsView = route === 'contents' || route === 'chapter';
-  const view = section ? 'reader-' + section.chapter : index ?? (contentsView ? 'contents' : 'home');
+  const view = section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (contentsView ? 'contents' : 'home');
 
   if (main.dataset.view !== view) {
+    chartObservers.forEach(observer => observer.disconnect());
+    chartObservers = [];
     main.dataset.view = view;
-    main.innerHTML = section ? chapterPage(section.chapter) : index ? collection(index) : home(!contentsView);
+    main.innerHTML = section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : home(!contentsView);
     main.querySelectorAll('[data-graph]').forEach(setupGraph);
+    if (index === 'graphs') setupGraphGallery();
   }
 
-  document.title = `${section?.title ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Учебный справочник')} · Микроэкономика`;
+  document.title = `${(graph ? graphs[graph.kind].title : section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : 'Учебный справочник')} · Микроэкономика`;
 
   let anchor;
-  if (topic) anchor = target === 'graph' && topic.graph ? 'graph-' + topic.graph : 'concept-' + topic.id;
+  if (topic) {
+    const topicGraph = topic.graph ?? graphKinds(topic)[0];
+    anchor = target === 'graph' && topicGraph ? 'graph-' + topicGraph : 'concept-' + topic.id;
+  }
   else if (section) anchor = 'section-' + section.id;
   else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
 
   main.querySelectorAll('.reader-aside .section-list a').forEach(link => {
     if (link.hash === '#section/' + section?.id) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
+
+  const activeNav = graph || index === 'graphs' ? '#graphs' : index === 'formulas' ? '#formulas' : '#contents';
+  document.querySelectorAll('.primary-nav a').forEach(link => {
+    if (link.hash === activeNav) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
 
@@ -247,9 +375,9 @@ const searchItems = [
     keywords: normalized([topic.title, sectionTitles[topic.section], topic.tag, topic.summary, topic.section, topic.symbols.map(item => item[0]).join(' '),
       { marginal: 'mu tu au мю предельная', derivative: 'mux muy частные производные дельта ∂', optimum: 'оптимальный равновесие mu px', budget: 'бюджетное ограничение доход px py' }[topic.id] ?? ''].join(' '))
   })),
-  ...topics.filter(topic => topic.graph).map(topic => ({
-    href: '#topic/' + topic.id + '/graph', title: graphs[topic.graph].title, label: 'График · § ' + topic.section,
-    keywords: normalized('график ' + graphs[topic.graph].title)
+  ...galleryEntries.map(({ kind, topic }) => ({
+    href: '#graph/' + kind, title: graphs[kind].title, label: 'График · § ' + topic.section,
+    keywords: normalized(['график', graphs[kind].title, topic.tag, graphSource(kind)].join(' '))
   }))
 ];
 
@@ -355,7 +483,7 @@ function setupPullRefresh() {
   document.addEventListener('touchstart', event => {
     reset();
     if (reloading || event.touches.length !== 1 || !atTop() ||
-        event.target.closest?.('input, textarea, select, button, [contenteditable], .search-results')) return;
+        event.target.closest?.('input, textarea, select, button, [contenteditable], .search-results, .primary-nav')) return;
     const touch = event.touches[0];
     gesture = { x: touch.clientX, y: touch.clientY, pulling: false };
   }, { passive: true });
