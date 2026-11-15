@@ -34,9 +34,9 @@ function practiceVariant() {
   const pick = items => items[Math.floor(Math.random() * items.length)];
   const tests = Object.keys(practiceChapters).slice(0, 8).map(chapter =>
     pick(practiceQuestions.filter(item => item.chapter === Number(chapter))));
-  const market = pick(practiceProblems.filter(item => [4, 5].includes(item.chapter)));
+  const market = pick(practiceProblems.filter(item => [4, 5].includes(item.chapter) && item.points === 2));
   const production = pick(practiceProblems.filter(item => [6, 8].includes(item.chapter) && item.points === 2));
-  const costs = pick(practiceProblems.filter(item => item.chapter === 9));
+  const costs = pick(practiceProblems.filter(item => item.chapter === 9 && item.points === 3));
   return [...practiceShuffle(tests), market, production, costs];
 }
 
@@ -44,6 +44,7 @@ function startPractice(mode, chapter) {
   let items;
   if (mode === 'mock') items = practiceVariant();
   else if (mode === 'homework') items = homeworkTasks.filter(item => chapter === 'all' || item.set === chapter);
+  else if (mode === 'problems' && chapter === 'similar') items = practiceShuffle(practiceSimilarProblems);
   else {
     const pool = mode === 'tests' ? practiceQuestions : mode === 'problems' ? [...practiceProblems, ...homeworkTasks] :
       [...practiceQuestions, ...practiceProblems];
@@ -154,18 +155,17 @@ function practiceReference(reference) {
 }
 
 function practiceExplanation(item, entry) {
-  const correctAnswer = item.choices ? item.choices[0] :
-    item.fields.map(([label, value]) => `${label} — ${practiceAnswerText(value)}`).join(' · ');
-  const given = item.choices ? item.choices[entry.answer] : entry.answer?.map(practiceAnswerText).join(' · ');
   const formulasMarkup = [...(item.keys ?? []).map(key => formula(key)),
     ...(item.formulas ?? []).map(value => `<div class="formula">${value}</div>`)];
-  return `
-    ${formulasMarkup.length ? `<div class="practice-formulas"><h3>Исходные формулы</h3><div class="formula-group">${formulasMarkup.join('')}</div></div>` : ''}
-    ${item.set ? `<dl class="practice-answer-list">${item.fields.map(([label, expected], index) => {
+  const answers = item.choices ? `<p><strong>Правильный ответ</strong> · ${item.choices[0]}</p>
+    ${entry.answer !== null && !practiceCorrect(item, entry) ? `<p><strong>Твой ответ</strong> · ${item.choices[entry.answer]}</p>` : ''}` :
+    `<dl class="practice-answer-list">${item.fields.map(([label, expected], index) => {
       const wrong = entry.answer && !practiceFieldCorrect(item, entry, item.fields[index], index);
       return `<div><dt>${label}</dt><dd>${practiceAnswerText(expected)}${wrong ? `<small>Твой ответ · ${practiceAnswerText(entry.answer[index])}</small>` : ''}</dd></div>`;
-    }).join('')}</dl>` : `<p><strong>Правильный ответ</strong> · ${correctAnswer}</p>
-    ${given && !practiceCorrect(item, entry) ? `<p><strong>Твой ответ</strong> · ${given}</p>` : ''}`}
+    }).join('')}</dl>`;
+  return `
+    ${formulasMarkup.length ? `<div class="practice-formulas"><h3>Исходные формулы</h3><div class="formula-group">${formulasMarkup.join('')}</div></div>` : ''}
+    ${answers}
     ${item.steps ? `<ol class="practice-steps">${item.steps.map(step => `<li>${step}</li>`).join('')}</ol>` : `<p>${item.explanation}</p>`}
     ${item.solutionChart ? practiceChart(item.solutionChart) : ''}
     ${practiceReference(item.reference)}`;
@@ -179,7 +179,7 @@ function practiceStartMarkup() {
     <div class="practice-modes">
       <article class="practice-mode">
         <h2>Тесты</h2>
-        <p>Вопросы с вариантами ответа и объяснением после проверки.</p>
+        <p>${practiceQuestions.length} вопроса с вариантами ответа и объяснением после проверки.</p>
         <form data-practice-topic="tests">
           <label for="practice-test-chapter">Тема тестов</label>
           <select name="chapter" id="practice-test-chapter"><option value="all">Все темы</option>${chapterOptions(practiceQuestions)}</select>
@@ -188,7 +188,7 @@ function practiceStartMarkup() {
       </article>
       <article class="practice-mode">
         <h2>Задачи</h2>
-        <p>Решай задачи из ДЗ по порядку или выбери тему для тренировки.</p>
+        <p>Оригинальные ДЗ, похожие задачи с другими числами и подборки по темам.</p>
         <form data-practice-topic="problems">
           <label for="practice-problem-chapter">Подборка задач</label>
           <select name="chapter" id="practice-problem-chapter">
@@ -198,6 +198,7 @@ function practiceStartMarkup() {
                 .map(([id, title]) => `<option value="hw/${id}">${practiceSetLabel(id)} · ${title}</option>`).join('')}
             </optgroup>
             <optgroup label="Тренировка по теме">
+              <option value="similar">Похожие на ДЗ · ${practiceSimilarProblems.length}</option>
               <option value="all">Все задачи тренажёра</option>${chapterOptions([...practiceProblems, ...homeworkTasks])}
             </optgroup>
           </select>
@@ -324,7 +325,7 @@ function setupPractice(moveFocus = false) {
       event.preventDefault();
       const chapter = new FormData(form).get('chapter');
       if (chapter.startsWith('hw/')) start('homework', chapter.slice(3));
-      else start(form.dataset.practiceTopic, chapter === 'all' ? chapter : Number(chapter));
+      else start(form.dataset.practiceTopic, chapter === 'all' || chapter === 'similar' ? chapter : Number(chapter));
     });
   }
   for (const button of body.querySelectorAll('[data-practice-go]')) {
