@@ -498,3 +498,21 @@ p { margin: 12px 0; }
   .practice-modes { grid-template-columns: minmax(0, 1fr); }
   .practice-mode { padding: 15px; }
 }
+
+.practice-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+.practice-fields :is(input, select) { display: block; max-width: 22rem; margin-top: 4px; }
+.practice-table { max-width: 100%; overflow-x: auto; margin: 16px 0; }
+.practice-table table { width: 100%; min-width: 15rem; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.practice-table caption { margin-bottom: 6px; color: var(--muted); text-align: left; font-weight: 650; }
+.practice-table :is(th, td) { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+.practice-table th:first-child { text-align: left; }
+.practice-table thead th { background: var(--mint); }
+.practice-answer-list { margin: 15px 0; font-size: 14px; }
+.practice-answer-list div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 37%); gap: 7px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.practice-answer-list dd { margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+.practice-answer-list small { display: block; color: var(--accent); font-weight: 500; }
+.homework-chart { max-width: 470px; margin: 16px 0; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-small); }
+.homework-chart figcaption { margin-bottom: 5px; font-size: 14px; font-weight: 650; }
+.homework-chart svg { display: block; width: 100%; }
+.homework-chart svg text { fill: var(--text); font: 10px var(--sans); }
+.legend-point { width: 8px !important; height: 8px !important; border-radius: 50%; background: var(--accent); }
