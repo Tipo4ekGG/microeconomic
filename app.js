@@ -39,6 +39,7 @@ function icon(name) {
     book: '<path d="M4 4h6a2 2 0 0 1 2 2v15a3 3 0 0 0-3-2H4V4Zm16 0h-6a2 2 0 0 0-2 2v15a3 3 0 0 1 3-2h5V4Z"/>',
     formula: '<path d="M16 4h-3a3 3 0 0 0-3 3l-2 10a3 3 0 0 1-3 3H4m3-10h9"/>',
     graph: '<path d="M4 4v16h16M7 15l4-5 4 3 5-7"/>',
+    practice: '<path d="M7 5h10v15H5V5h2m1-2h6v4H8zm0 11 2 2 4-5"/>',
     arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
     chevron: '<path d="m8 10 4 4 4-4"/>',
     close: '<path d="m6 6 12 12M6 18 18 6"/>'
@@ -192,7 +193,8 @@ function home(showIntro) {
       ${[
         ['book', '#contents', 'Разобраться в теме', `${sections.length} параграфов по учебнику`],
         ['formula', '#formulas', 'Найти формулу', `${formulaEntries.length} формулы с обозначениями`],
-        ['graph', '#graphs', 'Посмотреть график', `${galleryEntries.length} схем с пояснениями`]
+        ['graph', '#graphs', 'Посмотреть график', `${galleryEntries.length} схем с пояснениями`],
+        ['practice', '#practice', 'Подготовиться к контрольной', 'Пробный вариант и задания по темам']
       ].map(([name, href, title, text]) => `<a class="shortcut" href="${href}"><span class="shortcut-icon">${icon(name)}</span><span><strong>${title}</strong><small>${text}</small></span>${icon('arrow')}</a>`).join('')}
     </div>
   </section>` : ''}
@@ -421,20 +423,22 @@ function render({ moveFocus = false, restore = null } = {}) {
   const sectionId = topic?.section ?? (route === 'section' ? id : null);
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
+  const practice = route === 'practice' && !id;
   const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
   const contentsView = route === 'contents' || (route === 'chapter' && Object.hasOwn(chapterTitles, id));
   const homeView = (!route || route === 'home') && !id;
   const query = route === 'search' ? decodeQuery(id) : null;
-  const valid = section || graph || index || contentsView || homeView || query;
-  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (contentsView ? 'contents' : query ? 'search-' + query : 'home');
+  const valid = section || graph || index || practice || contentsView || homeView || query;
+  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
 
   if (main.dataset.view !== view) {
     chartObservers.forEach(observer => observer.disconnect());
     chartObservers = [];
     main.dataset.view = view;
-    main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : query ? searchPage(query) : home(!contentsView);
+    main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : practice ? practicePage() : query ? searchPage(query) : home(!contentsView);
     setupCharts();
     if (index) setupIndex(index);
+    if (practice) setupPractice();
     main.querySelector('#chapter-select')?.addEventListener('change', event => {
       const chapter = event.target.value;
       event.target.value = '';
@@ -448,7 +452,7 @@ function render({ moveFocus = false, restore = null } = {}) {
 
   if (query !== null) searchInput.value = query;
   document.querySelector('#clear-search').hidden = !searchInput.value;
-  document.title = `${!valid ? 'Страница не найдена' : (graph ? graphs[graph.kind].title : topic?.title ?? section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : query ? 'Поиск' : contentsView ? 'Оглавление' : 'Учебный справочник')} · Микроэкономика`;
+  document.title = `${!valid ? 'Страница не найдена' : (graph ? graphs[graph.kind].title : topic?.title ?? section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : practice ? 'Тренажёр' : query ? 'Поиск' : contentsView ? 'Оглавление' : 'Учебный справочник')} · Микроэкономика`;
 
   let anchor;
   if (topic) {
@@ -459,7 +463,7 @@ function render({ moveFocus = false, restore = null } = {}) {
   else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
 
   main.querySelectorAll('.chapter-picker').forEach(picker => { picker.open = false; });
-  const activeNav = graph || index === 'graphs' ? '#graphs' : index === 'formulas' ? '#formulas' : '#contents';
+  const activeNav = graph || index === 'graphs' ? '#graphs' : index === 'formulas' ? '#formulas' : practice ? '#practice' : '#contents';
   document.querySelectorAll('.primary-nav a').forEach(link => {
     if (valid && !query && link.hash === activeNav) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');

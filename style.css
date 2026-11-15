@@ -449,3 +449,52 @@ p { margin: 12px 0; }
   .home-shortcuts, .related-graphs { display: none; }
   a { color: inherit; }
 }
+
+.practice { max-width: 890px; }
+.practice h2 { margin: 0 0 14px; font-size: clamp(22px, 3vw, 30px); }
+.practice h3 { margin: 0 0 8px; font-size: 16px; }
+.practice-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 24px 0; }
+.practice-mode { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--page); }
+.practice-mode p { color: var(--muted); margin: 0 0 17px; }
+.practice-mode form, .practice-fields { display: grid; gap: 8px; }
+.practice-mode form .button { justify-self: start; margin-top: 4px; }
+.practice-mode label, .practice-fields label { font-size: 14px; font-weight: 650; }
+.practice :is(select, input[type="text"]) { width: 100%; min-width: 0; min-height: 44px; padding: 8px 11px; border: 1px solid var(--control-line); border-radius: var(--radius-small); background: var(--surface); font-size: 16px; }
+.practice-progress { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; color: var(--muted); font-size: 14px; }
+.practice progress { display: block; width: 100%; height: 10px; margin: 9px 0 22px; accent-color: var(--sage); }
+.practice-exercise .eyebrow { margin-bottom: 7px; }
+.practice-options { display: grid; min-width: 0; gap: 8px; margin: 0; padding: 0; border: 0; }
+.practice-options label { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 48px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-small); cursor: pointer; }
+.practice-options label:has(input:checked) { border-color: var(--sage); background: var(--mint); }
+.practice-options input { width: 17px; height: 17px; margin: 0; accent-color: var(--sage); }
+.practice-fields { gap: 12px; }
+.practice-fields input { display: block; max-width: 22rem; margin-top: 4px; }
+.practice-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+.practice-error { color: var(--accent); }
+.practice-error:empty { margin: 0; }
+.practice-explanation { margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius-small); background: var(--page); }
+.practice-explanation[data-correct="true"] { border-left-color: var(--sage); }
+.practice-formulas { margin: 16px 0; }
+.practice-steps { padding-left: 22px; }
+.practice-steps li + li { margin-top: 8px; }
+.practice-secondary { margin-top: 16px; color: var(--accent); background: transparent; }
+.practice-secondary:hover { background: var(--surface-hover); }
+.practice-review { display: grid; gap: 8px; }
+.practice-review details { border: 1px solid var(--line); border-radius: var(--radius-small); }
+.practice-review summary { display: list-item; min-height: 44px; padding: 12px 14px; }
+.practice-review summary small { display: block; margin: 4px 0 0 16px; color: var(--muted); }
+.practice-review-body { padding: 0 14px 14px; border-top: 1px solid var(--line); }
+@media (min-width: 601px) {
+  .home-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 821px) and (max-width: 920px) {
+  .top-inner { gap: 10px; }
+  .primary-nav a { padding-inline: 7px; }
+}
+@media (max-width: 820px) {
+  .top .primary-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .practice-modes { grid-template-columns: minmax(0, 1fr); }
+  .practice-mode { padding: 15px; }
+}
