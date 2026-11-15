@@ -76,6 +76,29 @@ function practiceCorrect(item, entry) {
     item.fields.every((field, index) => practiceFieldCorrect(item, entry, field, index));
 }
 
+function readPracticeForm(item, data) {
+  if (item.choices) {
+    const draft = data.get('choice');
+    return { draft, answer: draft === null ? null : Number(draft), invalid: draft === null ? 0 : -1 };
+  }
+  const draft = item.fields.map((_, index) => data.get('value-' + index));
+  const values = item.fields.map(([, , choices], index) => choices ? draft[index] : parsePracticeNumber(draft[index]));
+  const invalid = values.findIndex((value, index) => {
+    const choices = item.fields[index][2];
+    return choices ? !choices.includes(value) : !Number.isFinite(value);
+  });
+  return { draft, answer: invalid === -1 ? values : null, invalid };
+}
+
+function practiceProgress(attempt) {
+  return attempt.items.filter(entry => entry.answer !== null).length;
+}
+
+function practiceQuestionLabel(entry, index) {
+  const state = entry.answer !== null ? 'есть ответ' : entry.checked ? 'пропущено' : 'без ответа';
+  return `${index + 1} · ${state}`;
+}
+
 function practiceFieldCorrect(item, entry, [, expected], index) {
   const actual = entry.answer[index];
   if (typeof expected === 'string') return actual === expected;
@@ -193,12 +216,20 @@ function practiceStartMarkup() {
 function practiceExerciseMarkup(attempt) {
   const entry = attempt.items[attempt.index];
   const item = practiceBank[entry.id];
-  const answered = Object.hasOwn(entry, 'checked');
   const isMock = attempt.mode === 'mock';
+  const showFeedback = !isMock && entry.checked && entry.answer !== null;
+  const isLast = attempt.index === attempt.items.length - 1;
+  const draft = entry.draft ?? entry.answer;
   const heading = isMock ? 'Пробный вариант' : attempt.mode === 'tests' ? 'Тесты' : 'Задачи';
   return `
     <div class="practice-progress"><span>${heading}</span><span>Задание ${attempt.index + 1} из ${attempt.items.length}</span></div>
-    <progress value="${attempt.index + Number(answered)}" max="${attempt.items.length}" aria-label="Завершено заданий"></progress>
+    <progress value="${practiceProgress(attempt)}" max="${attempt.items.length}" aria-label="Заданий с ответом"></progress>
+    <nav class="practice-navigation" aria-label="Переход между заданиями">
+      <button class="button outline" type="button" data-practice-go="${attempt.index - 1}" ${attempt.index === 0 ? 'disabled' : ''}>Назад</button>
+      <select aria-label="Перейти к заданию" data-practice-jump>${attempt.items.map((question, index) =>
+        `<option value="${index}"${attempt.index === index ? ' selected' : ''}>${practiceQuestionLabel(question, index)}</option>`).join('')}</select>
+      <button class="button outline" type="button" data-practice-go="${attempt.index + 1}" ${isLast ? 'disabled' : ''}>Вперёд</button>
+    </nav>
     <div class="practice-exercise">
       <div class="eyebrow ink">${item.set ? `${practiceSetLabel(item.set)} · № ${item.no}` :
         `${item.choices ? 'ТЕСТ' : 'ЗАДАЧА'}${isMock ? ` · ${item.points} ${item.points === 1 ? 'БАЛЛ' : 'БАЛЛА'}` : ''}`}</div>
@@ -206,28 +237,32 @@ function practiceExerciseMarkup(attempt) {
       ${item.title ? `<p>${item.prompt}</p>` : ''}
       ${item.table ? practiceTable(item.table) : ''}
       ${item.promptChart ? practiceChart(item.promptChart) : ''}
-      ${answered ? `
+      ${showFeedback ? `
         <div class="practice-explanation" data-correct="${practiceCorrect(item, entry)}">
-          <h3>${entry.answer === null ? 'Пропущено' : practiceCorrect(item, entry) ? 'Верно' : 'Проверь ответы'}</h3>
+          <h3>${practiceCorrect(item, entry) ? 'Верно' : 'Проверь ответы'}</h3>
           ${practiceExplanation(item, entry)}
         </div>
-        <button class="button primary" type="button" data-practice-next>${attempt.index + 1 === attempt.items.length ? 'Итог тренировки' : 'Следующее задание'}</button>
+        ${isLast ? '' : `<button class="button primary" type="button" data-practice-go="${attempt.index + 1}">Следующее задание</button>`}
       ` : `
         <form data-practice-answer aria-labelledby="practice-question">
           ${item.choices ? `<fieldset class="practice-options"><legend class="sr">Выбери один ответ</legend>${entry.order.map(index =>
-            `<label><input name="choice" value="${index}" type="radio"><span>${item.choices[index]}</span></label>`).join('')}</fieldset>` :
+            `<label><input name="choice" value="${index}" type="radio"${draft !== null && Number(draft) === index ? ' checked' : ''}><span>${item.choices[index]}</span></label>`).join('')}</fieldset>` :
             `${item.solutionChart ? '<p class="note">Построй график на бумаге и сравни его с графиком в разборе.</p>' : ''}
               <div class="practice-fields">${item.fields.map(([label, , choices], index) => `<label>${label}${choices ?
-                `<select name="value-${index}" aria-label="${label}"><option value="">Выбрать</option>${choices.map(choice => `<option>${choice}</option>`).join('')}</select>` :
-                `<input type="text" name="value-${index}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="practice-number-help">`}</label>`).join('')}</div>
+                `<select name="value-${index}" aria-label="${label}"><option value="">Выбрать</option>${choices.map(choice => `<option${draft?.[index] === choice ? ' selected' : ''}>${choice}</option>`).join('')}</select>` :
+                `<input type="text" name="value-${index}" value="${escapeHTML(draft?.[index] ?? '')}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="practice-number-help">`}</label>`).join('')}</div>
               <p class="note" id="practice-number-help">Запятая, точка и дробь через «/» подходят.${item.set ? ' При необходимости округли до сотых.' : ''}</p>`}
           <p class="practice-error" role="alert"></p>
           <div class="practice-actions">
-            <button class="button primary" type="submit">${isMock ? (attempt.index + 1 === attempt.items.length ? 'Завершить вариант' : 'Сохранить и дальше') : 'Проверить ответ'}</button>
+            ${isMock && isLast ? '' : `<button class="button primary" type="submit">${isMock ? 'Сохранить и дальше' : 'Проверить ответ'}</button>`}
             <button class="button outline" type="button" data-practice-skip>Пропустить</button>
           </div>
         </form>`}
     </div>
+    ${isLast ? `<div class="practice-actions">
+      <button class="button primary" type="button" data-practice-finish>${isMock ? 'Завершить вариант' : 'Итог тренировки'}</button>
+      <span class="practice-unanswered" data-practice-unanswered>Без ответа · ${attempt.items.length - practiceProgress(attempt)}</span>
+    </div>` : ''}
     <button class="button practice-secondary" type="button" data-practice-menu>К режимам</button>`;
 }
 
@@ -244,7 +279,7 @@ function practiceResultsMarkup(attempt) {
     <div class="practice-review">${attempt.items.map((entry, index) => {
       const item = practiceBank[entry.id];
       const correct = practiceCorrect(item, entry);
-      const status = entry.answer === null ? 'Пропущено' : correct ? 'Верно' : 'Есть ошибка';
+      const status = entry.answer === null ? (entry.checked ? 'Пропущено' : 'Без ответа') : correct ? 'Верно' : 'Есть ошибка';
       return `<details><summary><span>${item.set ? `${practiceSetLabel(item.set)} · № ${item.no}. ${item.title}` : `${index + 1}. ${item.prompt}`}</span><small>${status}${showPoints ? ` · ${correct ? item.points : 0}/${item.points}` : ''}</small></summary>
         <div class="practice-review-body">${item.title ? `<p>${item.prompt}</p>` : ''}${item.table ? practiceTable(item.table) : ''}${item.promptChart ? practiceChart(item.promptChart) : ''}${practiceExplanation(item, entry)}</div>
       </details>`;
@@ -276,22 +311,11 @@ function setupPractice(moveFocus = false) {
     setupPractice(true);
   }
 
-  function advance() {
-    if (attempt.index + 1 === attempt.items.length) attempt.finished = true;
-    else attempt.index++;
+  function go(index) {
+    if (index < 0 || index >= attempt.items.length) return;
+    attempt.index = index;
     savePractice();
     setupPractice(true);
-  }
-
-  function recordAnswer(answer) {
-    const entry = attempt.items[attempt.index];
-    entry.answer = answer;
-    entry.checked = true;
-    if (attempt.mode === 'mock') advance();
-    else {
-      savePractice();
-      setupPractice(true);
-    }
   }
 
   body.querySelector('[data-practice-start]')?.addEventListener('click', () => start('mock'));
@@ -303,8 +327,21 @@ function setupPractice(moveFocus = false) {
       else start(form.dataset.practiceTopic, chapter === 'all' ? chapter : Number(chapter));
     });
   }
-  body.querySelector('[data-practice-next]')?.addEventListener('click', advance);
-  body.querySelector('[data-practice-skip]')?.addEventListener('click', () => recordAnswer(null));
+  for (const button of body.querySelectorAll('[data-practice-go]')) {
+    button.addEventListener('click', () => go(Number(button.dataset.practiceGo)));
+  }
+  body.querySelector('[data-practice-jump]')?.addEventListener('change', event => go(Number(event.target.value)));
+  body.querySelector('[data-practice-finish]')?.addEventListener('click', () => {
+    attempt.finished = true;
+    savePractice();
+    setupPractice(true);
+  });
+  body.querySelector('[data-practice-skip]')?.addEventListener('click', () => {
+    const entry = attempt.items[attempt.index];
+    entry.answer = null;
+    entry.checked = true;
+    go(Math.min(attempt.index + 1, attempt.items.length - 1));
+  });
   body.querySelector('[data-practice-retry]')?.addEventListener('click', () => start(attempt.mode, attempt.chapter));
   body.querySelector('[data-practice-menu]')?.addEventListener('click', () => {
     practiceShowMenu = true;
@@ -315,36 +352,53 @@ function setupPractice(moveFocus = false) {
     setupPractice(true);
   });
 
-  body.querySelector('[data-practice-answer]')?.addEventListener('submit', event => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const item = practiceBank[attempt.items[attempt.index].id];
+  const form = body.querySelector('[data-practice-answer]');
+  if (form) {
+    const entry = attempt.items[attempt.index];
+    const item = practiceBank[entry.id];
     const error = form.querySelector('.practice-error');
-    if (item.choices) {
-      if (!data.has('choice')) {
-        error.textContent = 'Выбери ответ или пропусти задание.';
-        form.querySelector('input').focus();
-        return;
+    const isMock = attempt.mode === 'mock';
+
+    form.addEventListener('input', () => {
+      const { draft, answer } = readPracticeForm(item, new FormData(form));
+      entry.draft = draft;
+      error.textContent = '';
+      if (isMock) {
+        entry.answer = answer;
+        entry.checked = answer !== null;
+        const answered = practiceProgress(attempt);
+        body.querySelector('progress').value = answered;
+        body.querySelector('[data-practice-jump]').options[attempt.index].textContent =
+          practiceQuestionLabel(entry, attempt.index);
+        const unanswered = body.querySelector('[data-practice-unanswered]');
+        if (unanswered) unanswered.textContent = `Без ответа · ${attempt.items.length - answered}`;
       }
-      recordAnswer(Number(data.get('choice')));
-    } else {
-      const values = item.fields.map(([, , choices], index) => {
-        const value = data.get('value-' + index);
-        return choices ? value : parsePracticeNumber(value);
-      });
-      const invalid = values.findIndex((value, index) => {
-        const choices = item.fields[index][2];
-        return choices ? !choices.includes(value) : !Number.isFinite(value);
-      });
+      savePractice();
+    });
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const { draft, answer, invalid } = readPracticeForm(item, new FormData(form));
       if (invalid !== -1) {
-        error.textContent = item.fields[invalid][2] ? 'Выбери вариант ответа в выделенном поле.' : 'Введи число в выделенном поле.';
-        form.elements['value-' + invalid].focus();
+        if (item.choices) {
+          error.textContent = 'Выбери ответ или пропусти задание.';
+          form.querySelector('input').focus();
+        } else {
+          error.textContent = item.fields[invalid][2] ? 'Выбери вариант ответа в выделенном поле.' : 'Введи число в выделенном поле.';
+          form.elements['value-' + invalid].focus();
+        }
         return;
       }
-      recordAnswer(values);
-    }
-  });
+      entry.draft = draft;
+      entry.answer = answer;
+      entry.checked = true;
+      if (isMock) go(Math.min(attempt.index + 1, attempt.items.length - 1));
+      else {
+        savePractice();
+        setupPractice(true);
+      }
+    });
+  }
 
   if (moveFocus) {
     const heading = body.querySelector('[data-practice-heading]') ?? main.querySelector('h1');
