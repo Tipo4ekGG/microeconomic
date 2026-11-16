@@ -521,3 +521,25 @@ p { margin: 12px 0; }
 .homework-chart svg { display: block; width: 100%; }
 .homework-chart svg text { fill: var(--text); font: 10px var(--sans); }
 .legend-point { width: 8px !important; height: 8px !important; border-radius: 50%; background: var(--accent); }
+
+/* Worked examples: compact, native disclosures below each formula. */
+.formula-worked-list { display: grid; gap: 14px; min-width: 0; margin-bottom: 16px; }
+.formula-worked-item { min-width: 0; max-width: 100%; }
+.formula-worked-item > .formula { max-width: 100%; }
+.formula-example { margin-top: 7px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--surface); min-width: 0; }
+.formula-example summary, .formula-self-check summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 10px 13px; color: var(--accent); font-size: 14px; font-weight: 650; cursor: pointer; list-style: none; }
+.formula-example summary::-webkit-details-marker, .formula-self-check summary::-webkit-details-marker { display: none; }
+.formula-example summary .ui-icon { flex-shrink: 0; }
+.formula-example[open] > summary .ui-icon, .formula-self-check[open] > summary .ui-icon { transform: rotate(180deg); }
+.formula-example[open] > summary { border-bottom: 1px solid var(--line); }
+.formula-example-body { padding: 2px 14px 14px; overflow-wrap: anywhere; font-size: 14px; }
+.formula-example-body p { margin: 12px 0; }
+.formula-example-meaning { border-left: 2px solid var(--sage); padding-left: 10px; color: var(--muted); }
+.formula-self-check { border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--page); }
+.formula-check-body { padding: 0 12px 12px; }
+.formula-check-label { display: grid; gap: 5px; font-weight: 600; }
+.formula-check-label input { display: block; box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid var(--control-line); border-radius: var(--radius-small); padding: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; }
+.formula-answer { margin-top: 8px; }
+.formula-answer > summary { padding: 7px 0; justify-content: flex-start; }
+.formula-answer > p { margin: 5px 0; }
+@media print { .formula-example { display: none; } }

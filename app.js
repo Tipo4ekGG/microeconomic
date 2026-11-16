@@ -213,6 +213,26 @@ function crumbs(label, parent) {
   return `<nav class="crumbs" aria-label="Путь к странице"><a href="#contents">Оглавление</a><span aria-hidden="true">/</span>${parent ? `<a href="${parent.href}">${parent.title}</a><span aria-hidden="true">/</span>` : ''}<span aria-current="page">${label}</span></nav>`;
 }
 
+function formulaExample(key) {
+  const [condition, solution, meaning, task, answer] = formulaExamples[key];
+  return `<details class="formula-example">
+    <summary>Показать пример с решением ${icon('chevron')}</summary>
+    <div class="formula-example-body">
+      <p><strong>Условие.</strong> ${escapeHTML(condition)}</p>
+      <p><strong>Решение.</strong> ${escapeHTML(solution)}</p>
+      <p class="formula-example-meaning"><strong>Экономический смысл.</strong> ${escapeHTML(meaning)}</p>
+      <details class="formula-self-check">
+        <summary>Решить похожую задачу ${icon('chevron')}</summary>
+        <div class="formula-check-body">
+          <p>${escapeHTML(task)}</p>
+          <label class="formula-check-label">Твой ответ <input type="text" autocomplete="off" placeholder="Введи свой ответ"></label>
+          <details class="formula-answer"><summary>Проверить себя — показать ответ</summary><p><strong>Ответ:</strong> ${escapeHTML(answer)}</p></details>
+        </div>
+      </details>
+    </div>
+  </details>`;
+}
+
 function conceptMarkup(topic, showTitle) {
   const heading = showTitle ? 'h4' : 'h3';
   const links = topic.related.map(id => topicById[id]).filter(link => link.section !== topic.section);
@@ -221,7 +241,7 @@ function conceptMarkup(topic, showTitle) {
   const otherGraphs = kinds.filter(kind => kind !== primaryGraph);
   return `<section id="concept-${topic.id}" class="concept" tabindex="-1" aria-label="${topic.title}">
     ${showTitle ? `<h3>${topic.title}</h3>` : ''}
-    ${topic.key ? `<div class="formula-group">${[topic.key, ...(topic.extraKeys ?? [])].map(key => formula(key, topic.id)).join('')}</div>` : ''}
+    ${topic.key ? `<div class="formula-worked-list">${[topic.key, ...(topic.extraKeys ?? [])].map(key => `<div class="formula-worked-item">${formula(key, topic.id)}${formulaExample(key)}</div>`).join('')}</div>` : ''}
     <p class="lead">${topic.plain}</p>
     <${heading} class="terms-title">${topic.key ? 'Обозначения' : 'Термины'}</${heading}>
     <dl class="symbol-list">${topic.symbols.map(([symbol, meaning]) => `<div><dt>${symbol}</dt><dd>${meaning}</dd></div>`).join('')}</dl>
