@@ -166,10 +166,10 @@ function practiceChart(chart) {
   </figure>`;
 }
 
-function practiceReference(reference) {
+function practiceReference(reference, linkId) {
   if (typeof reference !== 'string') return `<p class="note">Учебник · § ${reference.section}, с. ${reference.page}</p>`;
   const topic = topicById[reference];
-  return `<a class="button outline" href="#topic/${topic.id}">К теории · § ${topic.section}, с. ${topic.page}</a>`;
+  return `<a class="button outline"${linkId ? ` id="${linkId}"` : ''} href="#topic/${topic.id}">К теории · § ${topic.section}, с. ${topic.page}</a>`;
 }
 
 function practiceExplanation(item, entry) {
@@ -321,7 +321,9 @@ function practiceResultsMarkup(attempt) {
 let practiceShowMenu = false;
 
 function practicePage() {
-  return `${crumbs('Тренажёр')}<section class="collection practice"><h1>Тренажёр</h1><div data-practice-body></div></section>`;
+  return `${crumbs('Тренажёр')}<section class="collection practice"><h1>Тренажёр</h1>
+    <p class="practice-archive"><a class="button outline" href="#exam-2023">Разбор контрольных 2023 года ${icon('arrow')}</a></p>
+    <div data-practice-body></div></section>`;
 }
 
 function setupPractice(moveFocus = false) {

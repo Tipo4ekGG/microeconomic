@@ -444,18 +444,21 @@ function render({ moveFocus = false, restore = null } = {}) {
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
   const practice = route === 'practice' && !id;
+  const examVariant = route === 'exam-2023' ? exam2023Variants.find(item => String(item.number) === id) : null;
+  const exam = route === 'exam-2023' && (!id || examVariant);
   const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
   const contentsView = route === 'contents' || (route === 'chapter' && Object.hasOwn(chapterTitles, id));
   const homeView = (!route || route === 'home') && !id;
   const query = route === 'search' ? decodeQuery(id) : null;
-  const valid = section || graph || index || practice || contentsView || homeView || query;
-  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
+  const valid = section || graph || index || practice || exam || contentsView || homeView || query;
+  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (exam ? 'exam-2023/' + (id ?? '') : practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
 
   if (main.dataset.view !== view) {
+    if (main.dataset.view?.startsWith('exam-2023/')) exam2023RememberQuestions();
     chartObservers.forEach(observer => observer.disconnect());
     chartObservers = [];
     main.dataset.view = view;
-    main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : practice ? practicePage() : query ? searchPage(query) : home(!contentsView);
+    main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : exam ? exam2023Page(examVariant) : practice ? practicePage() : query ? searchPage(query) : home(!contentsView);
     setupCharts();
     if (index) setupIndex(index);
     if (practice) setupPractice();
@@ -472,7 +475,8 @@ function render({ moveFocus = false, restore = null } = {}) {
 
   if (query !== null) searchInput.value = query;
   document.querySelector('#clear-search').hidden = !searchInput.value;
-  document.title = `${!valid ? 'Страница не найдена' : (graph ? graphs[graph.kind].title : topic?.title ?? section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : practice ? 'Тренажёр' : query ? 'Поиск' : contentsView ? 'Оглавление' : 'Учебный справочник')} · Микроэкономика`;
+  const examTitle = examVariant ? `Контрольные 2023 · Вариант ${examVariant.number}` : 'Разбор контрольных 2023 года';
+  document.title = `${!valid ? 'Страница не найдена' : (graph ? graphs[graph.kind].title : topic?.title ?? section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : exam ? examTitle : practice ? 'Тренажёр' : query ? 'Поиск' : contentsView ? 'Оглавление' : 'Учебный справочник')} · Микроэкономика`;
 
   let anchor;
   if (topic) {
@@ -480,10 +484,11 @@ function render({ moveFocus = false, restore = null } = {}) {
     if (target?.startsWith('formula-') && [topic.key, ...(topic.extraKeys ?? [])].includes(target.slice(8))) anchor = 'formula-' + topic.id + '-' + target.slice(8);
     else anchor = target === 'graph' && topicGraph ? 'graph-' + topicGraph : 'concept-' + topic.id;
   } else if (section) anchor = 'section-' + section.id;
+  else if (examVariant && (target === 'tests' || target === 'problems')) anchor = 'exam-' + target;
   else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
 
   main.querySelectorAll('.chapter-picker').forEach(picker => { picker.open = false; });
-  const activeNav = graph || index === 'graphs' ? '#graphs' : index === 'formulas' ? '#formulas' : practice ? '#practice' : '#contents';
+  const activeNav = graph || index === 'graphs' ? '#graphs' : index === 'formulas' ? '#formulas' : practice || exam ? '#practice' : '#contents';
   document.querySelectorAll('.primary-nav a').forEach(link => {
     if (valid && !query && link.hash === activeNav) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
