@@ -29,6 +29,8 @@ for (const section of sections) {
   }
 }
 let chartObservers = [];
+const examAssetRequests = new Map();
+let examAssetsReady = false;
 
 function escapeHTML(value) {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -403,6 +405,7 @@ function setupGraph(figure) {
 
 function setupCharts() {
   const figures = [...main.querySelectorAll('[data-graph]')];
+  if (!figures.length) return;
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
@@ -415,12 +418,13 @@ function setupCharts() {
 }
 
 function updateFormulaOverflow() {
-  for (const element of main.querySelectorAll('.concept .formula')) {
+  for (const element of main.querySelectorAll('.concept .formula, .practice .formula')) {
+    if (!element.getClientRects().length) continue;
     const overflow = element.scrollWidth > element.clientWidth + 1;
     element.tabIndex = overflow ? 0 : -1;
     if (overflow) {
       element.setAttribute('role', 'region');
-      element.setAttribute('aria-label', formulaNames[element.dataset.formula] + '. Прокрутка стрелками влево и вправо.');
+      element.setAttribute('aria-label', (formulaNames[element.dataset.formula] ?? 'Формула') + '. Прокрутка стрелками влево и вправо.');
     } else {
       element.removeAttribute('role');
       element.removeAttribute('aria-label');
@@ -437,6 +441,28 @@ function decodeQuery(value) {
   catch { return ''; }
 }
 
+function loadExamAssets() {
+  const assets = document.querySelector('#exam-assets').content.querySelectorAll('script[src]');
+  return Promise.all([...assets].map(asset => {
+    const src = asset.getAttribute('src');
+    if (!examAssetRequests.has(src)) {
+      const request = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.addEventListener('load', resolve, { once: true });
+        script.addEventListener('error', () => {
+          script.remove();
+          examAssetRequests.delete(src);
+          reject(new Error('Не удалось загрузить ' + src));
+        }, { once: true });
+        document.head.append(script);
+      });
+      examAssetRequests.set(src, request);
+    }
+    return examAssetRequests.get(src);
+  }));
+}
+
 function render({ moveFocus = false, restore = null } = {}) {
   const [route, id, target] = location.hash.slice(1).split('/');
   const topic = route === 'topic' && Object.hasOwn(topicById, id) ? topicById[id] : null;
@@ -444,21 +470,24 @@ function render({ moveFocus = false, restore = null } = {}) {
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
   const practice = route === 'practice' && !id;
-  const examVariant = route === 'exam-2023' ? exam2023Variants.find(item => String(item.number) === id) : null;
-  const exam = route === 'exam-2023' && (!id || examVariant);
+  const examLoading = route === 'exam-2023' && !examAssetsReady;
+  const examVariant = route === 'exam-2023' && !examLoading ? exam2023Variants.find(item => String(item.number) === id) : null;
+  const exam = route === 'exam-2023' && (!id || examLoading || examVariant);
   const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
   const contentsView = route === 'contents' || (route === 'chapter' && Object.hasOwn(chapterTitles, id));
   const homeView = (!route || route === 'home') && !id;
   const query = route === 'search' ? decodeQuery(id) : null;
   const valid = section || graph || index || practice || exam || contentsView || homeView || query;
-  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (exam ? 'exam-2023/' + (id ?? '') : practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
+  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (examLoading ? 'exam-loading' : exam ? 'exam-2023/' + (id ?? '') : practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
 
   if (main.dataset.view !== view) {
     if (main.dataset.view?.startsWith('exam-2023/')) exam2023RememberQuestions();
     chartObservers.forEach(observer => observer.disconnect());
     chartObservers = [];
     main.dataset.view = view;
-    main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) : exam ? exam2023Page(examVariant) : practice ? practicePage() : query ? searchPage(query) : home(!contentsView);
+    main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) :
+      examLoading ? `<section class="collection practice"><h1>Контрольные 2023 года</h1><p role="status">Загружаю варианты…</p></section>` :
+      exam ? exam2023Page(examVariant) : practice ? practicePage() : query ? searchPage(query) : home(!contentsView);
     setupCharts();
     if (index) setupIndex(index);
     if (practice) setupPractice();
@@ -495,6 +524,23 @@ function render({ moveFocus = false, restore = null } = {}) {
   });
 
   const expectedHash = location.hash;
+  if (examLoading) {
+    loadExamAssets().then(() => {
+      examAssetsReady = true;
+      if (location.hash === expectedHash && main.dataset.view === 'exam-loading') render({ moveFocus, restore });
+    }, () => {
+      if (location.hash !== expectedHash || main.dataset.view !== 'exam-loading') return;
+      const status = main.querySelector('[role="status"]');
+      status.textContent = 'Варианты не загрузились. Проверь соединение и попробуй ещё раз.';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'button outline';
+      retry.textContent = 'Повторить загрузку';
+      status.after(retry);
+      main.dataset.view = 'exam-load-failed';
+      retry.addEventListener('click', () => render({ moveFocus: true, restore }));
+    });
+  }
   requestAnimationFrame(() => {
     if (location.hash !== expectedHash) return;
     updateFormulaOverflow();
@@ -594,10 +640,12 @@ function showSearch() {
   searchInput.removeAttribute('aria-activedescendant');
   const suggestions = matches.slice(0, 6);
   const searchHref = '#search/' + encodeURIComponent(query);
-  searchResults.innerHTML = `<div class="search-results-header">${matches.length ? `Найдено ${matches.length} · Выбери материал` : 'Ничего не найдено'}</div><div id="search-options" role="listbox" aria-label="Найденные материалы">${suggestions.map((item,i) => `<a id="search-option-${i}" role="option" aria-selected="false" tabindex="-1" href="${item.href}"><strong>${item.title}</strong><small>${item.label}</small></a>`).join('')}<a id="search-option-${suggestions.length}" role="option" aria-selected="false" tabindex="-1" class="search-all" href="${escapeHTML(searchHref)}">${matches.length ? 'Все результаты' : 'Изменить запрос'} ${icon('arrow')}</a></div>`;
+  searchResults.innerHTML = `<div class="search-results-header">${matches.length ? `Найдено ${matches.length} · Выбери материал` : 'Ничего не найдено. Попробуй другой запрос.'}</div><div id="search-options" role="listbox" aria-label="Найденные материалы">${suggestions.map((item,i) => `<a id="search-option-${i}" role="option" aria-selected="false" tabindex="-1" href="${item.href}"><strong>${item.title}</strong><small>${item.label}</small></a>`).join('')}${matches.length ? `<a id="search-option-${suggestions.length}" role="option" aria-selected="false" tabindex="-1" class="search-all" href="${escapeHTML(searchHref)}">Все результаты ${icon('arrow')}</a>` : ''}</div>`;
   searchResults.hidden = false;
   searchInput.setAttribute('aria-expanded', 'true');
-  searchStatus.textContent = `Найдено ${matches.length} материалов. Используй стрелки для выбора или Enter для всех результатов.`;
+  searchStatus.textContent = matches.length ?
+    `Найдено ${matches.length} материалов. Используй стрелки для выбора или Enter для всех результатов.` :
+    'Материалы не найдены.';
 }
 
 function selectSearchResult(direction) {
@@ -668,6 +716,9 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 window.addEventListener('pagehide', savePosition);
 window.addEventListener('resize', updateFormulaOverflow);
+main.addEventListener('toggle', event => {
+  if (event.target.open && event.target.querySelector('.formula')) updateFormulaOverflow();
+}, true);
 window.addEventListener('beforeprint', () => main.querySelectorAll('[data-graph]').forEach(setupGraph));
 window.addEventListener('popstate', event => {
   savePosition();
@@ -708,6 +759,8 @@ document.querySelector('#clear-search').addEventListener('click', () => {
 });
 document.addEventListener('click', event => {
   if (!event.target.closest('.search')) hideSearch();
+  const picker = main.querySelector('.chapter-picker[open]');
+  if (picker && !picker.contains(event.target)) picker.open = false;
   const link = event.target.closest('a');
   const href = link?.getAttribute('href');
   if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || link?.target === '_blank' || !href?.startsWith('#')) return;
@@ -722,6 +775,15 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     searchInput.focus();
     hideSearch();
+    return;
+  }
+  if (event.key === 'Escape') {
+    const picker = event.target.closest('.chapter-picker[open]');
+    if (picker) {
+      event.preventDefault();
+      picker.open = false;
+      picker.querySelector('summary').focus();
+    }
   }
   if (event.key === '/' && !event.target.closest('input, textarea, select, [contenteditable]') && !event.altKey && !event.ctrlKey && !event.metaKey) {
     event.preventDefault();

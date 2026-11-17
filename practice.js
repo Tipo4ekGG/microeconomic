@@ -4,7 +4,14 @@ const practiceStorageKey = 'microeconomic.practice.v1';
 function loadPractice() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(practiceStorageKey));
-    if (saved?.items.length && saved.items.every(item => Object.hasOwn(practiceBank, item.id))) return saved;
+    if (Array.isArray(saved?.items) && Number.isInteger(saved.index) &&
+        saved.index >= 0 && saved.index < saved.items.length &&
+        saved.items.every(item => item && Object.hasOwn(practiceBank, item.id))) {
+      for (const entry of saved.items) {
+        if (entry.checked && entry.answer === null) delete entry.draft;
+      }
+      return saved;
+    }
   } catch {
     // The current attempt still works if browser storage is unavailable.
   }
@@ -371,6 +378,7 @@ function setupPractice(moveFocus = false) {
   body.querySelector('[data-practice-skip]')?.addEventListener('click', () => {
     const entry = attempt.items[attempt.index];
     entry.answer = null;
+    delete entry.draft;
     entry.checked = true;
     go(Math.min(attempt.index + 1, attempt.items.length - 1));
   });
@@ -437,4 +445,5 @@ function setupPractice(moveFocus = false) {
     heading.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }
+  updateFormulaOverflow();
 }
