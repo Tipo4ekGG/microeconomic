@@ -148,7 +148,7 @@ function practiceChart(chart) {
   const plotPoints = points => points.map(([x, y]) => `${sx(x).toFixed(2)},${sy(y).toFixed(2)}`).join(' ');
   const markedPoints = chart.lines.filter(line => line.mark).flatMap(line => line.points)
     .map(([x, y]) => `<circle class="chart-dot" cx="${sx(x)}" cy="${sy(y)}" r="3"><title>${number.format(x)} · ${number.format(y)}</title></circle>`).join('');
-  const ticks = (axis, max) => [...new Set([
+  const ticks = (axis, max) => chart.schematic ? [] : [...new Set([
     max, ...chart.lines.filter(line => line.mark).flatMap(line => line.points.map(point => point[axis]))
   ])].filter(value => value > 0).sort((a, b) => a - b);
   const areas = chart.areas ?? [];
