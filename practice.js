@@ -40,9 +40,27 @@ function practiceVariant() {
   return [...practiceShuffle(tests), market, production, costs];
 }
 
+function practiceRehearsal() {
+  const graphical = practiceShuffle(rehearsalGraphQuestions).slice(0, 2);
+  const textual = practiceShuffle(practiceQuestions.filter(item => !item.promptChart));
+  const byChapter = Object.keys(practiceChapters).map(chapter => textual.find(item => item.chapter === Number(chapter)));
+  const additional = textual.filter(item => !byChapter.includes(item)).slice(0, 2);
+  const problems = [];
+  for (const chapters of [[2, 4], [4, 5], [6], [8], [9]]) {
+    const candidates = practiceProblems.filter(item => chapters.includes(item.chapter) && !problems.includes(item));
+    problems.push(candidates[Math.floor(Math.random() * candidates.length)]);
+  }
+  return [...practiceShuffle([...graphical, ...byChapter, ...additional]), ...problems];
+}
+
+function practiceReviewAtEnd(mode) {
+  return mode === 'mock' || mode === 'rehearsal';
+}
+
 function startPractice(mode, chapter) {
   let items;
   if (mode === 'mock') items = practiceVariant();
+  else if (mode === 'rehearsal') items = practiceRehearsal();
   else if (mode === 'homework') items = homeworkTasks.filter(item => chapter === 'all' || item.set === chapter);
   else if (mode === 'problems' && chapter === 'similar') items = practiceShuffle(practiceSimilarProblems);
   else {
@@ -103,7 +121,7 @@ function practiceQuestionLabel(entry, index) {
 function practiceFieldCorrect(item, entry, [, expected], index) {
   const actual = entry.answer[index];
   if (typeof expected === 'string') return actual === expected;
-  const tolerance = item.set && !Number.isInteger(expected) ? 0.005000001 : 1e-8;
+  const tolerance = (item.set || item.roundToHundredths) && !Number.isInteger(expected) ? 0.005000001 : 1e-8;
   return Math.abs(actual - expected) <= tolerance;
 }
 
@@ -206,22 +224,28 @@ function practiceStartMarkup() {
         </form>
       </article>
       <article class="practice-mode">
+        <h2>Репетиция контрольной</h2>
+        <p>13 тестовых заданий, в том числе с графиками, и 5 задач с развёрнутым решением. Ход решения можно записывать на бумаге, ответы проверяются в конце.</p>
+        <button class="button primary" type="button" data-practice-start="rehearsal">Начать репетицию</button>
+      </article>
+      <article class="practice-mode">
         <h2>Пробный вариант</h2>
         <p>8 вопросов теста и 3 задачи на 15 баллов. Разбор и баллы появятся в конце.</p>
         <button class="button outline" type="button" data-practice-start="mock">Начать вариант</button>
       </article>
     </div>
-    <p class="note">Номера страниц в разборах даны по изданию 2011 года. Пробный вариант составлен для подготовки, формат контрольной может отличаться.</p>`;
+    <p class="note">Номера страниц в разборах даны по изданию 2011 года. Формат репетиции взят из рассказов студентов, задания составлены по образцам прошлых лет.</p>`;
 }
 
 function practiceExerciseMarkup(attempt) {
   const entry = attempt.items[attempt.index];
   const item = practiceBank[entry.id];
-  const isMock = attempt.mode === 'mock';
-  const showFeedback = !isMock && entry.checked && entry.answer !== null;
+  const reviewAtEnd = practiceReviewAtEnd(attempt.mode);
+  const showFeedback = !reviewAtEnd && entry.checked && entry.answer !== null;
   const isLast = attempt.index === attempt.items.length - 1;
   const draft = entry.draft ?? entry.answer;
-  const heading = isMock ? 'Пробный вариант' : attempt.mode === 'tests' ? 'Тесты' : 'Задачи';
+  const heading = attempt.mode === 'rehearsal' ? 'Репетиция контрольной' :
+    attempt.mode === 'mock' ? 'Пробный вариант' : attempt.mode === 'tests' ? 'Тесты' : 'Задачи';
   return `
     <div class="practice-progress"><span>${heading}</span><span>Задание ${attempt.index + 1} из ${attempt.items.length}</span></div>
     <progress value="${practiceProgress(attempt)}" max="${attempt.items.length}" aria-label="Заданий с ответом"></progress>
@@ -233,7 +257,7 @@ function practiceExerciseMarkup(attempt) {
     </nav>
     <div class="practice-exercise">
       <div class="eyebrow ink">${item.set ? `${practiceSetLabel(item.set)} · № ${item.no}` :
-        `${item.choices ? 'ТЕСТ' : 'ЗАДАЧА'}${isMock ? ` · ${item.points} ${item.points === 1 ? 'БАЛЛ' : 'БАЛЛА'}` : ''}`}</div>
+        `${item.choices ? 'ТЕСТ' : 'ЗАДАЧА'}${attempt.mode === 'mock' ? ` · ${item.points} ${item.points === 1 ? 'БАЛЛ' : 'БАЛЛА'}` : ''}`}</div>
       <h2 tabindex="-1" data-practice-heading id="practice-question">${item.title ?? item.prompt}</h2>
       ${item.title ? `<p>${item.prompt}</p>` : ''}
       ${item.table ? practiceTable(item.table) : ''}
@@ -252,16 +276,16 @@ function practiceExerciseMarkup(attempt) {
               <div class="practice-fields">${item.fields.map(([label, , choices], index) => `<label>${label}${choices ?
                 `<select name="value-${index}" aria-label="${label}"><option value="">Выбрать</option>${choices.map(choice => `<option${draft?.[index] === choice ? ' selected' : ''}>${choice}</option>`).join('')}</select>` :
                 `<input type="text" name="value-${index}" value="${escapeHTML(draft?.[index] ?? '')}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="practice-number-help">`}</label>`).join('')}</div>
-              <p class="note" id="practice-number-help">Запятая, точка и дробь через «/» подходят.${item.set ? ' При необходимости округли до сотых.' : ''}</p>`}
+              <p class="note" id="practice-number-help">Запятая, точка и дробь через «/» подходят.${item.set || item.roundToHundredths ? ' При необходимости округли до сотых.' : ''}</p>`}
           <p class="practice-error" role="alert"></p>
           <div class="practice-actions">
-            ${isMock && isLast ? '' : `<button class="button primary" type="submit">${isMock ? 'Сохранить и дальше' : 'Проверить ответ'}</button>`}
+            ${reviewAtEnd && isLast ? '' : `<button class="button primary" type="submit">${reviewAtEnd ? 'Сохранить и дальше' : 'Проверить ответ'}</button>`}
             <button class="button outline" type="button" data-practice-skip>Пропустить</button>
           </div>
         </form>`}
     </div>
     ${isLast ? `<div class="practice-actions">
-      <button class="button primary" type="button" data-practice-finish>${isMock ? 'Завершить вариант' : 'Итог тренировки'}</button>
+      <button class="button primary" type="button" data-practice-finish>${reviewAtEnd ? 'Завершить вариант' : 'Итог тренировки'}</button>
       <span class="practice-unanswered" data-practice-unanswered>Без ответа · ${attempt.items.length - practiceProgress(attempt)}</span>
     </div>` : ''}
     <button class="button practice-secondary" type="button" data-practice-menu>К режимам</button>`;
@@ -270,12 +294,15 @@ function practiceExerciseMarkup(attempt) {
 function practiceResultsMarkup(attempt) {
   const total = attempt.items.reduce((sum, entry) => sum + practiceBank[entry.id].points, 0);
   const showPoints = attempt.mode === 'mock' || attempt.mode === 'topic';
+  const rehearsalTests = attempt.mode === 'rehearsal' ? attempt.items.filter(entry => practiceBank[entry.id].choices) : [];
+  const correctTests = rehearsalTests.filter(entry => practiceCorrect(practiceBank[entry.id], entry)).length;
   const score = attempt.items.reduce((sum, entry) => {
     const item = practiceBank[entry.id];
     return sum + (practiceCorrect(item, entry) ? (showPoints ? item.points : 1) : 0);
   }, 0);
   return `
     <h2 tabindex="-1" data-practice-heading>${showPoints ? 'Результат' : 'Решено верно'} · ${score} из ${showPoints ? total : attempt.items.length}</h2>
+    ${rehearsalTests.length ? `<p>Тесты · ${correctTests} из ${rehearsalTests.length}. Задачи · ${score - correctTests} из ${attempt.items.length - rehearsalTests.length}.</p>` : ''}
     <p class="lead">Открой задание, чтобы посмотреть решение.</p>
     <div class="practice-review">${attempt.items.map((entry, index) => {
       const item = practiceBank[entry.id];
@@ -286,7 +313,7 @@ function practiceResultsMarkup(attempt) {
       </details>`;
     }).join('')}</div>
     <div class="practice-actions">
-      <button class="button primary" type="button" data-practice-retry>${attempt.mode === 'mock' ? 'Новый вариант' : 'Повторить подборку'}</button>
+      <button class="button primary" type="button" data-practice-retry>${practiceReviewAtEnd(attempt.mode) ? 'Новый вариант' : 'Повторить подборку'}</button>
       <button class="button outline" type="button" data-practice-menu>К режимам</button>
     </div>`;
 }
@@ -319,7 +346,9 @@ function setupPractice(moveFocus = false) {
     setupPractice(true);
   }
 
-  body.querySelector('[data-practice-start]')?.addEventListener('click', () => start('mock'));
+  for (const button of body.querySelectorAll('[data-practice-start]')) {
+    button.addEventListener('click', () => start(button.dataset.practiceStart));
+  }
   for (const form of body.querySelectorAll('[data-practice-topic]')) {
     form.addEventListener('submit', event => {
       event.preventDefault();
@@ -358,13 +387,13 @@ function setupPractice(moveFocus = false) {
     const entry = attempt.items[attempt.index];
     const item = practiceBank[entry.id];
     const error = form.querySelector('.practice-error');
-    const isMock = attempt.mode === 'mock';
+    const reviewAtEnd = practiceReviewAtEnd(attempt.mode);
 
     form.addEventListener('input', () => {
       const { draft, answer } = readPracticeForm(item, new FormData(form));
       entry.draft = draft;
       error.textContent = '';
-      if (isMock) {
+      if (reviewAtEnd) {
         entry.answer = answer;
         entry.checked = answer !== null;
         const answered = practiceProgress(attempt);
@@ -393,7 +422,7 @@ function setupPractice(moveFocus = false) {
       entry.draft = draft;
       entry.answer = answer;
       entry.checked = true;
-      if (isMock) go(Math.min(attempt.index + 1, attempt.items.length - 1));
+      if (reviewAtEnd) go(Math.min(attempt.index + 1, attempt.items.length - 1));
       else {
         savePractice();
         setupPractice(true);
