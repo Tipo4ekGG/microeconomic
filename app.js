@@ -194,7 +194,7 @@ function home(showIntro) {
     <div class="home-shortcuts">
       ${[
         ['book', '#contents', 'Разобраться в теме', `${sections.length} параграфов по учебнику`],
-        ['formula', '#formulas', 'Найти формулу', `${formulaEntries.length} формулы с обозначениями`],
+        ['formula', '#formulas', 'Найти формулу', 'Формулы с обозначениями'],
         ['graph', '#graphs', 'Посмотреть график', `${galleryEntries.length} схем с пояснениями`],
         ['practice', '#practice', 'Подготовиться к контрольной', 'Пробный вариант и задания по темам']
       ].map(([name, href, title, text]) => `<a class="shortcut" href="${href}"><span class="shortcut-icon">${icon(name)}</span><span><strong>${title}</strong><small>${text}</small></span>${icon('arrow')}</a>`).join('')}
@@ -243,7 +243,7 @@ function conceptMarkup(topic, showTitle) {
   const otherGraphs = kinds.filter(kind => kind !== primaryGraph);
   return `<section id="concept-${topic.id}" class="concept" tabindex="-1" aria-label="${topic.title}">
     ${showTitle ? `<h3>${topic.title}</h3>` : ''}
-    ${topic.key ? `<div class="formula-worked-list">${[topic.key, ...(topic.extraKeys ?? [])].map(key => `<div class="formula-worked-item">${formula(key, topic.id)}${formulaExample(key)}</div>`).join('')}</div>` : ''}
+    ${topic.key ? `<div class="formula-worked-list">${[topic.key, ...(topic.extraKeys ?? [])].map(key => `<div class="formula-worked-item">${formula(key, topic.id)}${Object.hasOwn(formulaExamples, key) ? formulaExample(key) : ''}</div>`).join('')}</div>` : ''}
     <p class="lead">${topic.plain}</p>
     <${heading} class="terms-title">${topic.key ? 'Обозначения' : 'Термины'}</${heading}>
     <dl class="symbol-list">${topic.symbols.map(([symbol, meaning]) => `<div><dt>${symbol}</dt><dd>${meaning}</dd></div>`).join('')}</dl>

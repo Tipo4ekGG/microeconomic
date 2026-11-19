@@ -193,6 +193,32 @@ const formulas = {
   longRunAverageCost: equationLines(
     mathRow(identifier('LRAC'), parentheses(q), equals, fraction(mathRow(identifier('LTC'), parentheses(q)), q)),
     mathRow(equals, identifier('min', 'K'), identifier('SRAC'), parentheses(q, operator(';'), capital))
+  ),
+  inverseDemand: equationLines(
+    mathRow(qDemand, equals, identifier('a'), minus, identifier('b'), price),
+    mathRow(price, equals, fraction(mathRow(identifier('a'), minus, qDemand), identifier('b')))
+  ),
+  demandPriceAtElasticity: equation(
+    price, equals,
+    fraction(mathRow(identifier('a'), absoluteDemandElasticity),
+      mathRow(identifier('b'), parentheses(numeral(1), plus, absoluteDemandElasticity)))
+  ),
+  pointSupplyElasticity: equation(
+    supplyElasticity, equals, superscript(qSupply, '′'), parentheses(price), operator('·'), fraction(price, qSupply)
+  ),
+  budgetLineSlope: equation(identifier('y'), equals, fraction(identifier('I'), pY), minus, fraction(pX, pY), identifier('x')),
+  linearUtility: equation(identifier('U'), equals, identifier('a'), identifier('x'), plus, identifier('b'), identifier('y')),
+  totalProduct: equation(identifier('TP'), equals, identifier('AP', 'L'), operator('·'), labor),
+  marginalProductChange: equation(
+    mpL, equals, fraction(delta(identifier('TP')), delta(labor))
+  ),
+  cobbDouglas: equation(
+    q, equals, identifier('A'), superscript(capital, 'α'), superscript(labor, 'β')
+  ),
+  returnsToScale: equation(
+    identifier('F'), parentheses(identifier('t'), labor, comma, identifier('t'), capital),
+    equals, `<msup>${identifier('t')}${mathRow(identifier('α'), plus, identifier('β'))}</msup>`,
+    identifier('F'), parentheses(labor, comma, capital)
   )
 };
 
@@ -260,5 +286,14 @@ const formulaNames = {
   marginalCost: 'Предельные издержки MC',
   marginalCostProduct: 'Связь MC с предельным продуктом труда',
   averageCostProduct: 'Связь AVC со средним продуктом труда',
-  longRunAverageCost: 'Долгосрочные средние издержки LRAC'
+  longRunAverageCost: 'Долгосрочные средние издержки LRAC',
+  inverseDemand: 'Прямая и обратная функции линейного спроса',
+  demandPriceAtElasticity: 'Цена при заданной точечной эластичности линейного спроса',
+  pointSupplyElasticity: 'Точечная эластичность предложения',
+  budgetLineSlope: 'Бюджетная линия через Y и её наклон',
+  linearUtility: 'Полезность совершенных заменителей',
+  totalProduct: 'Выпуск через средний продукт',
+  marginalProductChange: 'Предельный продукт труда по таблице',
+  cobbDouglas: 'Производственная функция Кобба — Дугласа',
+  returnsToScale: 'Отдача от масштаба для функции Кобба — Дугласа'
 };
