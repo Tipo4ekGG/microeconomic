@@ -314,15 +314,20 @@ function exam2023Formulas(keys = [], rules = []) {
   </div>`;
 }
 
-function exam2023Question(id, number, title, { prompt, choices, charts, table }, solution, solutionLabel) {
+function exam2023Question(id, number, title, question, solution, solutionLabel) {
+  const { prompt, choices, choiceStyle = 'А.', charts, table, afterTable, subparts, sourceLabel } = question;
   const solutionId = id + '-solution';
+  const letters = choiceStyle[0] === 'а' ? 'абвгде' : 'АБВГДЕ';
   return `<details class="exam-question" id="${id}"${exam2023OpenQuestions.has(id) ? ' open' : ''}>
     <summary><span class="exam-question-number">№ ${number}</span><span>${escapeHTML(title)}</span>${icon('chevron')}</summary>
     <div class="exam-question-body">
-      <p class="exam-prompt">${escapeHTML(prompt).replace(/\^(\d+,\d+)/g, '<sup>$1</sup>')}</p>
+      ${sourceLabel ? `<p class="note">${sourceLabel}</p>` : ''}
+      <p class="exam-prompt">${escapeHTML(prompt).replace(/\^(\d+[.,]\d+)/g, '<sup>$1</sup>')}</p>
       ${table ? practiceTable(table) : ''}
       ${charts?.length ? `<div class="${charts.length > 1 ? 'exam-figure-choices' : 'exam-figure'}">${charts.map(practiceChart).join('')}</div>` : ''}
-      ${choices?.length ? `<ol class="exam-choices" role="list">${choices.map((choice, index) => `<li><span>${'АБВГДЕ'[index]}.</span> <span>${escapeHTML(choice)}</span></li>`).join('')}</ol>` : ''}
+      ${afterTable ? `<p class="exam-prompt">${escapeHTML(afterTable)}</p>` : ''}
+      ${subparts ? `<ol class="exam-choices" role="list">${subparts.map(part => `<li><span>${escapeHTML(part.slice(0, 2))}</span> <span>${escapeHTML(part.slice(3))}</span></li>`).join('')}</ol>` : ''}
+      ${choices?.length ? `<ol class="exam-choices" role="list">${choices.map((choice, index) => `<li><span>${letters[index]}${choiceStyle[1]}</span> <span>${escapeHTML(choice)}</span></li>`).join('')}</ol>` : ''}
       <details class="exam-solution" id="${solutionId}"${exam2023OpenQuestions.has(solutionId) ? ' open' : ''}>
         <summary><span>${solutionLabel}</span>${icon('chevron')}</summary>
         ${solution}
@@ -340,7 +345,7 @@ function exam2023Page(variant) {
         <ul class="exam-variants">${exam2023Variants.map(item => `<li><a href="#exam-2023/${item.number}">
           Вариант ${item.number}${icon('arrow')}
         </a></li>`).join('')}</ul>
-        <p class="note">Номера заданий соответствуют порядку на листах. Параграфы и страницы указаны по учебнику 2011 года.</p>
+        <p class="note">Номера 1–19 идут по таблице ответов. У каждой задачи также указан номер из текста оригинала. Параграфы и страницы даны по учебнику 2011 года.</p>
       </section>`;
   }
   const base = '#exam-2023/' + variant.number;
@@ -354,11 +359,11 @@ function exam2023Page(variant) {
       </nav>
       <p class="note">Открой задание, чтобы прочитать условие. Ответ и разбор можно раскрыть отдельно.</p>
       <section class="exam-section" aria-labelledby="exam-tests">
-        <h2 id="exam-tests" tabindex="-1">Тесты</h2>
+        <h2 id="exam-tests" tabindex="-1">Тесты · 1 балл за вопрос</h2>
         ${variant.tests.map(([title, answer, explanation, reference, key, charts], index) => {
           const id = `exam-${variant.number}-test-${index + 1}`;
-          const [prompt, choices, figures] = questions.tests[index];
-          return exam2023Question(id, index + 1, title, { prompt, choices, charts: figures }, `
+          const [prompt, choices, choiceStyle, chartsFromPaper] = questions.tests[index];
+          return exam2023Question(id, index + 1, title, { prompt, choices, choiceStyle: choiceStyle ?? undefined, charts: chartsFromPaper }, `
             ${exam2023Formulas(key ? [key] : [])}
             <p><strong>Ответ.</strong> ${escapeHTML(answer)}</p>
             <p>${escapeHTML(explanation)}</p>
@@ -372,6 +377,8 @@ function exam2023Page(variant) {
           const number = variant.tests.length + index + 1;
           const id = `exam-${variant.number}-problem-${number}`;
           const question = { table: problem.table, ...questions.problems[index] };
+          const sourceNumber = question.sourceNumber ?? index + 1;
+          question.sourceLabel = `Задача ${sourceNumber} на листе · ${index < 2 ? '2,5 балла' : '5 баллов'}`;
           return exam2023Question(id, number, problem.title, question, `
             ${exam2023Formulas(problem.keys, problem.rules)}
             <h3>Ход решения</h3>
