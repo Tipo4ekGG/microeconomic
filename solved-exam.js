@@ -18,7 +18,7 @@ const solvedExamCharts = {
 };
 
 function solvedExamQuestion(question, variant) {
-  const { number, prompt, options, workerTable, followup, answer, explanation, formula, steps, graph, note } = question;
+  const { number, prompt, options, workerTable, followup, answer, explanation, formula, steps, graph, note, references = [] } = question;
   const id = `solved-exam-${variant}-question-${number}`;
   const result = answer ? `<p><strong>Ответ.</strong> ${answer}${explanation ? '.' : ''}</p>` : '';
   const solution = explanation ? result + `<p>${explanation}</p>` : `
@@ -34,6 +34,11 @@ function solvedExamQuestion(question, variant) {
     ${workerTable ? practiceTable(solvedExamWorkerTable) + `<p class="exam-prompt">${followup}</p>` : ''}
     ${options.length ? `<ol class="exam-choices" role="list">${options.map(option => `<li><span>${option.slice(0, 2)}</span><span>${option.slice(3)}</span></li>`).join('')}</ol>` : ''}
     ${answer ? examSolution(id + '-solution', explanation ? 'Ответ и пояснение' : 'Решение', solution) : `<p class="note">${note}</p>`}
+    ${references.length ? `<div class="concept-links"><span>Учебник</span>${references.map(reference => {
+      const topic = topicById[reference];
+      const textbook = reference === 'economic-choice' ? '§ 1.1, с. 11' : `§ ${topic.section}, с. ${topic.page}`;
+      return `<a id="${id}-theory-${topic.id}" href="#topic/${topic.id}">${escapeHTML(topic.title)} · ${textbook}</a>`;
+    }).join('')}</div>` : ''}
   </article>`;
 }
 
@@ -44,7 +49,7 @@ function solvedExamPage(variant) {
     return `${crumbs(title, { title: 'Тренажёр', href: '#practice' })}
       <section class="collection practice exam">
         <h1>${title}</h1>
-        <p class="lead">В каждом варианте 13 тестовых вопросов, 2 задания и 3 задачи. Условия видны сразу. Под каждым заданием можно раскрыть ответ или решение.</p>
+        <p class="lead">В каждом варианте 13 тестовых вопросов, 2 задания и 3 задачи. Под условиями есть ответы и ссылки на теорию. Номера страниц указаны по учебнику 2011 года.</p>
         <ul class="exam-variants">${solvedExamVariants.map(item => `<li><a href="${home}/${item.number}">
           Вариант ${item.number}${icon('arrow')}
         </a></li>`).join('')}</ul>
