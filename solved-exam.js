@@ -18,12 +18,12 @@ const solvedExamCharts = {
 };
 
 function solvedExamQuestion(question, variant) {
-  const { number, prompt, options, workerTable, followup, answer, explanation, formula, steps, graph, note, references = [] } = question;
+  const { number, prompt, options, workerTable, followup, answer, explanation, formulaKeys = [], steps, graph, note, references = [] } = question;
   const id = `solved-exam-${variant}-question-${number}`;
   const result = answer ? `<p><strong>Ответ.</strong> ${answer}${explanation ? '.' : ''}</p>` : '';
   const solution = explanation ? result + `<p>${explanation}</p>` : `
-    <h4>Исходная формула</h4>
-    <p class="exam-rule">${formula}</p>
+    <h4>${formulaKeys.length === 1 ? 'Исходная формула' : 'Исходные формулы'}</h4>
+    <div class="formula-group">${formulaKeys.map(key => formula(key)).join('')}</div>
     ${note ? `<p class="note">${note}</p>` : ''}
     <ol class="practice-steps">${steps?.map(step => `<li>${step}</li>`).join('') ?? ''}</ol>
     ${result}
