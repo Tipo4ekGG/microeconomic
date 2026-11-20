@@ -55,6 +55,7 @@ function solvedExamPage(variant) {
         </a></li>`).join('')}</ul>
         <nav class="exam-shortcuts" aria-label="Материалы к контрольной">
           <a class="button outline" href="#exam-test">Тест без повторов ${icon('arrow')}</a>
+          <a class="button outline" href="#exam-formulas">Формулы к вариантам 1–4 ${icon('formula')}</a>
           <a class="button outline" href="microeconomic-variants-1-4-solutions.pdf">PDF для печати</a>
         </nav>
       </section>`;
@@ -98,6 +99,7 @@ function solvedExamTestPage() {
       <p class="lead">Вопросы тестовой части вариантов 1–4. Под каждым можно раскрыть ответ и пояснение.</p>
       <nav class="exam-shortcuts" aria-label="Материалы к контрольной">
         <a class="button outline" href="#exam-variants">К вариантам 1–4 ${icon('arrow')}</a>
+        <a class="button outline" href="#exam-formulas">Формулы к вариантам 1–4 ${icon('formula')}</a>
       </nav>
       <section class="exam-section" aria-labelledby="exam-tests">
         <h2 id="exam-tests">${questions.size} вопросов</h2>

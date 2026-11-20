@@ -35,7 +35,8 @@ const openExamDetails = new Set();
 const examRoutes = {
   'exam-2023': { title: 'Разбор контрольных 2023 года', variants: () => exam2023Variants, page: variant => exam2023Page(variant) },
   'exam-variants': { title: 'Варианты 1–4 с решениями', variants: () => solvedExamVariants, page: variant => solvedExamPage(variant) },
-  'exam-test': { title: 'Тест без повторов', assets: 'exam-variants', page: () => solvedExamTestPage() }
+  'exam-test': { title: 'Тест без повторов', assets: 'exam-variants', page: () => solvedExamTestPage() },
+  'exam-formulas': { title: 'Формулы к вариантам 1–4', page: () => examFormulaPage() }
 };
 
 function escapeHTML(value) {
@@ -487,14 +488,16 @@ function render({ moveFocus = false, restore = null } = {}) {
   const examAssets = examRoute?.assets ?? route;
   const examLoading = examRoute && !readyExamRoutes.has(examAssets);
   const examVariant = examRoute && !examLoading ? examRoute.variants?.().find(item => String(item.number) === id) : null;
-  const exam = examRoute && (!id || examLoading || examVariant);
+  const examFormulaSection = route === 'exam-formulas' && id && !examLoading
+    && examFormulaSections.some(section => section.id === id);
+  const exam = examRoute && (!id || examLoading || examVariant || examFormulaSection);
   const examLoadingView = route + '-loading';
   const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
   const contentsView = route === 'contents' || (route === 'chapter' && Object.hasOwn(chapterTitles, id));
   const homeView = (!route || route === 'home') && !id;
   const query = route === 'search' ? decodeQuery(id) : null;
   const valid = section || graph || index || practice || exam || contentsView || homeView || query;
-  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (examLoading ? examLoadingView : exam ? route + '/' + (id ?? '') : practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
+  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (examLoading ? examLoadingView : exam ? route + '/' + (examVariant?.number ?? '') : practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
 
   if (main.dataset.view !== view) {
     main.querySelectorAll('details.exam-question, details.exam-solution').forEach(detail => {
@@ -532,6 +535,7 @@ function render({ moveFocus = false, restore = null } = {}) {
     if (target?.startsWith('formula-') && [topic.key, ...(topic.extraKeys ?? [])].includes(target.slice(8))) anchor = 'formula-' + topic.id + '-' + target.slice(8);
     else anchor = target === 'graph' && topicGraph ? 'graph-' + topicGraph : 'concept-' + topic.id;
   } else if (section) anchor = 'section-' + section.id;
+  else if (examFormulaSection) anchor = 'exam-formulas-' + id;
   else if (examVariant && ['tests', 'problems', 'exercises'].includes(target)) anchor = 'exam-' + target;
   else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
 

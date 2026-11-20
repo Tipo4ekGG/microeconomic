@@ -332,6 +332,7 @@ function practicePage() {
     <nav class="practice-archive" aria-label="Материалы к контрольной">
       <a class="button primary" href="#exam-variants">Варианты 1–4 с решениями ${icon('arrow')}</a>
       <a class="button outline" href="#exam-test">Тест без повторов ${icon('arrow')}</a>
+      <a class="button outline" href="#exam-formulas">Формулы к вариантам 1–4 ${icon('formula')}</a>
       <a class="button outline" href="microeconomic-variants-1-4-solutions.pdf">PDF для печати</a>
       <a class="button outline" href="#exam-2023">Разбор контрольных 2023 года ${icon('arrow')}</a>
     </nav>
