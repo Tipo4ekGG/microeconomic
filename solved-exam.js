@@ -53,7 +53,10 @@ function solvedExamPage(variant) {
         <ul class="exam-variants">${solvedExamVariants.map(item => `<li><a href="${home}/${item.number}">
           Вариант ${item.number}${icon('arrow')}
         </a></li>`).join('')}</ul>
-        <a class="button outline" href="microeconomic-variants-1-4-solutions.pdf">PDF для печати</a>
+        <nav class="exam-shortcuts" aria-label="Материалы к контрольной">
+          <a class="button outline" href="#exam-test">Тест без повторов ${icon('arrow')}</a>
+          <a class="button outline" href="microeconomic-variants-1-4-solutions.pdf">PDF для печати</a>
+        </nav>
       </section>`;
   }
   const base = `${home}/${variant.number}`;
@@ -76,5 +79,29 @@ function solvedExamPage(variant) {
         <a class="button outline" href="${home}">Все варианты</a>
         ${variant.number < solvedExamVariants.length ? `<a class="button outline" href="${home}/${variant.number + 1}">Вариант ${variant.number + 1} ${icon('arrow')}</a>` : ''}
       </nav>
+    </section>`;
+}
+
+function solvedExamTestPage() {
+  const questions = new Map();
+  for (const variant of solvedExamVariants) {
+    for (const question of variant.questions.slice(0, 13)) {
+      const prompt = question.prompt.replace('Если спрос растёт, а предложение снижается, то:', 'Если спрос растёт, а предложение падает, то:');
+      const key = JSON.stringify([prompt, question.options]);
+      if (!questions.has(key)) questions.set(key, question);
+    }
+  }
+  const title = 'Тест без повторов';
+  return `${crumbs(title, { title: 'Тренажёр', href: '#practice' })}
+    <section class="collection practice exam">
+      <h1>${title}</h1>
+      <p class="lead">Вопросы тестовой части вариантов 1–4. Под каждым можно раскрыть ответ и пояснение.</p>
+      <nav class="exam-shortcuts" aria-label="Материалы к контрольной">
+        <a class="button outline" href="#exam-variants">К вариантам 1–4 ${icon('arrow')}</a>
+      </nav>
+      <section class="exam-section" aria-labelledby="exam-tests">
+        <h2 id="exam-tests">${questions.size} вопросов</h2>
+        ${[...questions.values()].map((question, index) => solvedExamQuestion({ ...question, number: index + 1 }, 'combined')).join('')}
+      </section>
     </section>`;
 }

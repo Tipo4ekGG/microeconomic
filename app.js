@@ -34,7 +34,8 @@ const readyExamRoutes = new Set();
 const openExamDetails = new Set();
 const examRoutes = {
   'exam-2023': { title: 'Разбор контрольных 2023 года', variants: () => exam2023Variants, page: variant => exam2023Page(variant) },
-  'exam-variants': { title: 'Варианты 1–4 с решениями', variants: () => solvedExamVariants, page: variant => solvedExamPage(variant) }
+  'exam-variants': { title: 'Варианты 1–4 с решениями', variants: () => solvedExamVariants, page: variant => solvedExamPage(variant) },
+  'exam-test': { title: 'Тест без повторов', assets: 'exam-variants', page: () => solvedExamTestPage() }
 };
 
 function escapeHTML(value) {
@@ -483,8 +484,9 @@ function render({ moveFocus = false, restore = null } = {}) {
   const index = route === 'graphs' || route === 'formulas' ? route : null;
   const practice = route === 'practice' && !id;
   const examRoute = Object.hasOwn(examRoutes, route) ? examRoutes[route] : null;
-  const examLoading = examRoute && !readyExamRoutes.has(route);
-  const examVariant = examRoute && !examLoading ? examRoute.variants().find(item => String(item.number) === id) : null;
+  const examAssets = examRoute?.assets ?? route;
+  const examLoading = examRoute && !readyExamRoutes.has(examAssets);
+  const examVariant = examRoute && !examLoading ? examRoute.variants?.().find(item => String(item.number) === id) : null;
   const exam = examRoute && (!id || examLoading || examVariant);
   const examLoadingView = route + '-loading';
   const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
@@ -542,8 +544,8 @@ function render({ moveFocus = false, restore = null } = {}) {
 
   const expectedHash = location.hash;
   if (examLoading) {
-    loadExamAssets(route).then(() => {
-      readyExamRoutes.add(route);
+    loadExamAssets(examAssets).then(() => {
+      readyExamRoutes.add(examAssets);
       if (location.hash === expectedHash && main.dataset.view === examLoadingView) render({ moveFocus, restore });
     }, () => {
       if (location.hash !== expectedHash || main.dataset.view !== examLoadingView) return;
