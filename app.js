@@ -30,7 +30,12 @@ for (const section of sections) {
 }
 let chartObservers = [];
 const examAssetRequests = new Map();
-let examAssetsReady = false;
+const readyExamRoutes = new Set();
+const openExamDetails = new Set();
+const examRoutes = {
+  'exam-2023': { title: 'Разбор контрольных 2023 года', variants: () => exam2023Variants, page: variant => exam2023Page(variant) },
+  'exam-variants': { title: 'Варианты 1–4 с решениями', variants: () => solvedExamVariants, page: variant => solvedExamPage(variant) }
+};
 
 function escapeHTML(value) {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -441,8 +446,15 @@ function decodeQuery(value) {
   catch { return ''; }
 }
 
-function loadExamAssets() {
-  const assets = document.querySelector('#exam-assets').content.querySelectorAll('script[src]');
+function examSolution(id, label, body) {
+  return `<details class="exam-solution" id="${id}"${openExamDetails.has(id) ? ' open' : ''}>
+    <summary><span>${label}</span>${icon('chevron')}</summary>
+    ${body}
+  </details>`;
+}
+
+function loadExamAssets(route) {
+  const assets = document.getElementById(route + '-assets').content.querySelectorAll('script[src]');
   return Promise.all([...assets].map(asset => {
     const src = asset.getAttribute('src');
     if (!examAssetRequests.has(src)) {
@@ -470,24 +482,29 @@ function render({ moveFocus = false, restore = null } = {}) {
   const section = Object.hasOwn(sectionById, sectionId) ? sectionById[sectionId] : null;
   const index = route === 'graphs' || route === 'formulas' ? route : null;
   const practice = route === 'practice' && !id;
-  const examLoading = route === 'exam-2023' && !examAssetsReady;
-  const examVariant = route === 'exam-2023' && !examLoading ? exam2023Variants.find(item => String(item.number) === id) : null;
-  const exam = route === 'exam-2023' && (!id || examLoading || examVariant);
+  const examRoute = Object.hasOwn(examRoutes, route) ? examRoutes[route] : null;
+  const examLoading = examRoute && !readyExamRoutes.has(route);
+  const examVariant = examRoute && !examLoading ? examRoute.variants().find(item => String(item.number) === id) : null;
+  const exam = examRoute && (!id || examLoading || examVariant);
+  const examLoadingView = route + '-loading';
   const graph = route === 'graph' && Object.hasOwn(graphByKind, id) ? graphByKind[id] : null;
   const contentsView = route === 'contents' || (route === 'chapter' && Object.hasOwn(chapterTitles, id));
   const homeView = (!route || route === 'home') && !id;
   const query = route === 'search' ? decodeQuery(id) : null;
   const valid = section || graph || index || practice || exam || contentsView || homeView || query;
-  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (examLoading ? 'exam-loading' : exam ? 'exam-2023/' + (id ?? '') : practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
+  const view = !valid ? 'not-found' : section ? 'reader-' + section.chapter : graph ? 'graph-' + id : index ?? (examLoading ? examLoadingView : exam ? route + '/' + (id ?? '') : practice ? 'practice' : contentsView ? 'contents' : query ? 'search-' + query : 'home');
 
   if (main.dataset.view !== view) {
-    if (main.dataset.view?.startsWith('exam-2023/')) exam2023RememberQuestions();
+    main.querySelectorAll('details.exam-question, details.exam-solution').forEach(detail => {
+      if (detail.open) openExamDetails.add(detail.id);
+      else openExamDetails.delete(detail.id);
+    });
     chartObservers.forEach(observer => observer.disconnect());
     chartObservers = [];
     main.dataset.view = view;
     main.innerHTML = !valid ? notFound() : section ? chapterPage(section.chapter) : graph ? graphPage(graph) : index ? collection(index) :
-      examLoading ? `<section class="collection practice"><h1>Контрольные 2023 года</h1><p role="status">Загружаю варианты…</p></section>` :
-      exam ? exam2023Page(examVariant) : practice ? practicePage() : query ? searchPage(query) : home(!contentsView);
+      examLoading ? `<section class="collection practice"><h1>${examRoute.title}</h1><p role="status">Загружаю варианты…</p></section>` :
+      exam ? examRoute.page(examVariant) : practice ? practicePage() : query ? searchPage(query) : home(!contentsView);
     setupCharts();
     if (index) setupIndex(index);
     if (practice) setupPractice();
@@ -504,7 +521,7 @@ function render({ moveFocus = false, restore = null } = {}) {
 
   if (query !== null) searchInput.value = query;
   document.querySelector('#clear-search').hidden = !searchInput.value;
-  const examTitle = examVariant ? `Контрольные 2023 · Вариант ${examVariant.number}` : 'Разбор контрольных 2023 года';
+  const examTitle = examVariant ? `${examRoute.title} · Вариант ${examVariant.number}` : examRoute?.title;
   document.title = `${!valid ? 'Страница не найдена' : (graph ? graphs[graph.kind].title : topic?.title ?? section?.title) ?? (index === 'graphs' ? 'Графики' : index === 'formulas' ? 'Формулы' : exam ? examTitle : practice ? 'Тренажёр' : query ? 'Поиск' : contentsView ? 'Оглавление' : 'Учебный справочник')} · Микроэкономика`;
 
   let anchor;
@@ -513,7 +530,7 @@ function render({ moveFocus = false, restore = null } = {}) {
     if (target?.startsWith('formula-') && [topic.key, ...(topic.extraKeys ?? [])].includes(target.slice(8))) anchor = 'formula-' + topic.id + '-' + target.slice(8);
     else anchor = target === 'graph' && topicGraph ? 'graph-' + topicGraph : 'concept-' + topic.id;
   } else if (section) anchor = 'section-' + section.id;
-  else if (examVariant && (target === 'tests' || target === 'problems')) anchor = 'exam-' + target;
+  else if (examVariant && ['tests', 'problems', 'exercises'].includes(target)) anchor = 'exam-' + target;
   else if (route === 'chapter' && Object.hasOwn(chapterTitles, id)) anchor = 'chapter-' + id;
 
   main.querySelectorAll('.chapter-picker').forEach(picker => { picker.open = false; });
@@ -525,11 +542,11 @@ function render({ moveFocus = false, restore = null } = {}) {
 
   const expectedHash = location.hash;
   if (examLoading) {
-    loadExamAssets().then(() => {
-      examAssetsReady = true;
-      if (location.hash === expectedHash && main.dataset.view === 'exam-loading') render({ moveFocus, restore });
+    loadExamAssets(route).then(() => {
+      readyExamRoutes.add(route);
+      if (location.hash === expectedHash && main.dataset.view === examLoadingView) render({ moveFocus, restore });
     }, () => {
-      if (location.hash !== expectedHash || main.dataset.view !== 'exam-loading') return;
+      if (location.hash !== expectedHash || main.dataset.view !== examLoadingView) return;
       const status = main.querySelector('[role="status"]');
       status.textContent = 'Варианты не загрузились. Проверь соединение и попробуй ещё раз.';
       const retry = document.createElement('button');

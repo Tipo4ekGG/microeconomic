@@ -532,6 +532,9 @@ p { margin: 12px 0; }
 .exam-section { display: grid; gap: 8px; margin-top: 26px; }
 .exam-section h2 { margin-bottom: 3px; }
 .exam-question { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-small); }
+.solved-exam-question { padding: 14px clamp(12px, 3vw, 22px); }
+.solved-exam-question h3 { margin-top: 0; font-size: 1rem; line-height: 1.45; }
+.solved-exam-question h3 span { color: var(--muted); }
 .exam-question > summary { display: grid; grid-template-columns: 3.1rem minmax(0, 1fr) 18px; align-items: center; gap: 8px; min-height: 48px; padding: 10px 12px; border-radius: inherit; list-style: none; font-weight: 650; line-height: 1.4; overflow-wrap: break-word; }
 .exam-question > summary::-webkit-details-marker, .exam-solution > summary::-webkit-details-marker { display: none; }
 .exam-question[open] > summary { border-bottom: 1px solid var(--line); border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: var(--page); }
@@ -552,9 +555,9 @@ p { margin: 12px 0; }
 .exam-write { margin: 18px 0 12px; padding: 12px 14px; border-left: 3px solid var(--sage); border-radius: var(--radius-small); background: var(--mint); }
 .exam-write p { margin: 8px 0 0; }
 .exam-bottom { margin-top: 22px; }
-.exam :is(#exam-tests, #exam-problems) { scroll-margin-top: 12px; }
+.exam :is(#exam-tests, #exam-exercises, #exam-problems) { scroll-margin-top: 12px; }
 @media (max-width: 820px) {
-  .exam :is(#exam-tests, #exam-problems) { scroll-margin-top: calc(64px + env(safe-area-inset-top, 0px)); }
+  .exam :is(#exam-tests, #exam-exercises, #exam-problems) { scroll-margin-top: calc(64px + env(safe-area-inset-top, 0px)); }
 }
 
 /* Worked examples: compact, native disclosures below each formula. */

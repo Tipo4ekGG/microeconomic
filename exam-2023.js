@@ -296,15 +296,6 @@ exam2023Variants.push({
   ]
 });
 
-const exam2023OpenQuestions = new Set();
-
-function exam2023RememberQuestions() {
-  main.querySelectorAll('.exam-question, .exam-solution').forEach(question => {
-    if (question.open) exam2023OpenQuestions.add(question.id);
-    else exam2023OpenQuestions.delete(question.id);
-  });
-}
-
 function exam2023Formulas(keys = [], rules = []) {
   if (!keys.length && !rules.length) return '';
   return `<div class="practice-formulas"><h3>Исходные формулы</h3>
@@ -317,7 +308,7 @@ function exam2023Question(id, number, title, question, solution, solutionLabel) 
   const { prompt, choices, choiceStyle = 'А.', charts, table, afterTable, subparts, sourceLabel } = question;
   const solutionId = id + '-solution';
   const letters = choiceStyle[0] === 'а' ? 'абвгде' : 'АБВГДЕ';
-  return `<details class="exam-question" id="${id}"${exam2023OpenQuestions.has(id) ? ' open' : ''}>
+  return `<details class="exam-question" id="${id}"${openExamDetails.has(id) ? ' open' : ''}>
     <summary><span class="exam-question-number">№ ${number}</span><span>${escapeHTML(title)}</span>${icon('chevron')}</summary>
     <div class="exam-question-body">
       ${sourceLabel ? `<p class="note">${sourceLabel}</p>` : ''}
@@ -327,10 +318,7 @@ function exam2023Question(id, number, title, question, solution, solutionLabel) 
       ${afterTable ? `<p class="exam-prompt">${escapeHTML(afterTable)}</p>` : ''}
       ${subparts ? `<ol class="exam-choices" role="list">${subparts.map(part => `<li><span>${escapeHTML(part.slice(0, 2))}</span> <span>${escapeHTML(part.slice(3))}</span></li>`).join('')}</ol>` : ''}
       ${choices?.length ? `<ol class="exam-choices" role="list">${choices.map((choice, index) => `<li><span>${letters[index]}${choiceStyle[1]}</span> <span>${escapeHTML(choice)}</span></li>`).join('')}</ol>` : ''}
-      <details class="exam-solution" id="${solutionId}"${exam2023OpenQuestions.has(solutionId) ? ' open' : ''}>
-        <summary><span>${solutionLabel}</span>${icon('chevron')}</summary>
-        ${solution}
-      </details>
+      ${examSolution(solutionId, solutionLabel, solution)}
     </div>
   </details>`;
 }
